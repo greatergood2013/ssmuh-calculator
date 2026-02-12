@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SSMUH Yield Calculator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#f0fdf4',100:'#dcfce7',500:'#22c55e',600:'#16a34a',700:'#15803d' },
+            danger:{ 50:'#fef2f2',100:'#fee2e2',500:'#ef4444',600:'#dc2626',700:'#b91c1c' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+  <!-- ── Header ───────────────────────────────────────────── -->
+  <header class="bg-white shadow-sm border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">SSMUH Yield Calculator</h1>
+        <p class="text-sm text-gray-500 mt-1">Small-Scale Multi-Unit Housing Financial Analysis</p>
+      </div>
+      <button id="victoriaDefaultsBtn" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors" title="Load Victoria-area defaults for all categories">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Use Victoria Defaults
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Main Content ─────────────────────────────────────── -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Project Info Row -->
+    <div class="mb-6 flex flex-col sm:flex-row gap-4">
+      <input type="text" id="projectName" placeholder="Project Name (e.g., Langford 4plex)"
+        class="flex-1 sm:max-w-sm px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg">
+      <div class="flex gap-3 items-center">
+        <label class="text-sm font-medium text-gray-600">Type:</label>
+        <select id="buildType" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+          <option value="fourplex">Fourplex</option>
+          <option value="duplex">Duplex</option>
+          <option value="sixplex">Sixplex</option>
+          <option value="townhouse">Townhouse</option>
+          <option value="eightplex">Eightplex</option>
+        </select>
+        <label class="text-sm font-medium text-gray-600 ml-2">Municipality:</label>
+        <select id="municipality" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+          <option value="victoria">Victoria</option>
+          <option value="saanich">Saanich</option>
+          <option value="langford">Langford</option>
+          <option value="colwood">Colwood</option>
+          <option value="esquimalt">Esquimalt</option>
+          <option value="custom">Custom (Manual)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Show/Hide Zero Toggle -->
+    <div class="mb-4 flex items-center gap-2">
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" id="showZeros" class="sr-only peer" checked>
+        <div class="w-9 h-5 bg-gray-300 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full"></div>
+      </label>
+      <span class="text-sm text-gray-600">Show zero-value items</span>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+      <!-- ═══ LEFT COLUMN: Input Form ═══════════════════════ -->
+      <div class="space-y-4">
+
+        <!-- ── 1. Land Acquisition (Always expanded) ──────── -->
+        <div class="accordion bg-white rounded-lg shadow-sm border border-gray-200" data-section="land">
+          <div class="accordion-header p-4 flex items-center justify-between cursor-pointer select-none" data-target="land">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+              <span class="font-semibold text-gray-800">Land Acquisition</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span id="landTotal" class="text-sm font-semibold text-gray-700">$0</span>
+              <svg class="accordion-chevron w-5 h-5 text-gray-400 transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+          <div class="accordion-body px-4 pb-4 space-y-3" id="landBody">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Land Purchase Price <span class="text-red-500">*</span></label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <input type="text" id="landCost" class="currency-input w-full pl-7 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="400,000">
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Legal / Due Diligence</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <input type="text" id="legalDD" value="15,000" class="currency-input w-full pl-7 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Closing Costs (% of Land Cost)</label>
+              <div class="relative">
+                <input type="number" id="closingCosts" value="1.5" step="0.1" min="0" max="100" class="w-full pr-8 pl-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 2. Hard Costs (Triple-entry + Expandable) ──── -->
+        <div class="accordion bg-white rounded-lg shadow-sm border border-gray-200" data-section="hard">
+          <div class="accordion-header p-4 flex items-center justify-between cursor-pointer select-none" data-target="hard">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+              <span class="font-semibold text-gray-800">Hard Costs</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span id="hardTotal" class="text-sm font-semibold text-gray-700">$0</span>
+              <svg class="accordion-chevron w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+          <div class="accordion-body hidden px-4 pb-4 space-y-4" id="hardBody">
+            <!-- Project size -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Number of Units <span class="text-red-500">*</span></label>
+                <input type="number" id="numUnits" value="4" min="2" max="8" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">SF per Unit</label>
+                <input type="text" id="sfPerUnit" value="1,100" class="currency-input w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+            </div>
+            <div class="text-xs text-gray-500">Total SF: <span id="totalSFDisplay">4,400</span></div>
+
+            <!-- Triple-entry input method -->
+            <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Enter construction cost using:</div>
+              <div class="flex gap-1 mb-3">
+                <button class="cost-method-btn px-3 py-1.5 text-xs font-medium rounded-md transition-colors" data-method="perSF">$/SF</button>
+                <button class="cost-method-btn active px-3 py-1.5 text-xs font-medium rounded-md transition-colors" data-method="perUnit">$/Unit</button>
+                <button class="cost-method-btn px-3 py-1.5 text-xs font-medium rounded-md transition-colors" data-method="total">Total</button>
+              </div>
+              <div class="grid grid-cols-3 gap-3">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Cost per SF</label>
+                  <div class="relative">
+                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input type="text" id="costPerSF" value="275" class="cost-sync-input w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-method="perSF">
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Cost per Unit</label>
+                  <div class="relative">
+                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input type="text" id="costPerUnit" value="302,500" class="currency-input cost-sync-input w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-method="perUnit">
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Total Construction</label>
+                  <div class="relative">
+                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input type="text" id="totalConstruction" value="1,210,000" class="currency-input cost-sync-input w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-method="total">
+                  </div>
+                </div>
+              </div>
+              <div class="text-xs text-green-600 mt-2 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                Auto-sync enabled
+              </div>
+            </div>
+
+            <!-- Hard cost breakdown (sub-accordion) -->
+            <div class="border-t border-gray-200 pt-3">
+              <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Cost Distribution (Illustrative)</div>
+              <div id="hardCostBreakdown" class="space-y-1"></div>
+              <button id="resetHardCosts" class="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium">Reset to Defaults</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 3. Soft Costs (Expandable with delta) ──────── -->
+        <div class="accordion bg-white rounded-lg shadow-sm border border-gray-200" data-section="soft">
+          <div class="accordion-header p-4 flex items-center justify-between cursor-pointer select-none" data-target="soft">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+              <span id="softCostLabel" class="font-semibold text-gray-800">Soft Costs: 15%</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span id="softTotal" class="text-sm font-semibold text-gray-700">$0</span>
+              <svg class="accordion-chevron w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+          <div class="accordion-body hidden px-4 pb-4 space-y-2" id="softBody">
+            <div id="softCostBreakdown" class="space-y-1"></div>
+            <div class="flex gap-3 pt-2">
+              <button id="resetSoftCosts" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Reset to Defaults</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 4. Contingency ─────────────────────────────── -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">4</span>
+              <span class="font-semibold text-gray-800">Contingency</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="relative w-20">
+                <input type="number" id="contingencyPct" value="10" step="0.5" min="0" max="50" class="w-full pr-7 pl-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <span class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+              </div>
+              <span id="contingencyTotal" class="text-sm font-semibold text-gray-700 w-24 text-right">$0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 5. Municipal Fees (Expandable) ─────────────── -->
+        <div class="accordion bg-white rounded-lg shadow-sm border border-gray-200" data-section="municipal">
+          <div class="accordion-header p-4 flex items-center justify-between cursor-pointer select-none" data-target="municipal">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">5</span>
+              <span class="font-semibold text-gray-800">Municipal Fees</span>
+              <span id="muniLabel" class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Victoria</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span id="municipalTotal" class="text-sm font-semibold text-gray-700">$0</span>
+              <svg class="accordion-chevron w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+          <div class="accordion-body hidden px-4 pb-4 space-y-2" id="municipalBody">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">DCC Fees</span>
+              <a id="dccSourceLink" href="#" target="_blank" rel="noopener noreferrer" class="hidden text-xs text-blue-600 hover:text-blue-800 font-medium">View DCC Bylaw &rarr;</a>
+            </div>
+            <div id="dccBreakdown" class="space-y-1"></div>
+            <div class="flex items-center gap-2 mt-3 mb-1">
+              <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Other Municipal Fees</span>
+              <a id="feesSourceLink" href="#" target="_blank" rel="noopener noreferrer" class="hidden text-xs text-blue-600 hover:text-blue-800 font-medium">View Fee Schedule &rarr;</a>
+            </div>
+            <div id="otherMuniBreakdown" class="space-y-1"></div>
+            <button id="resetMunicipal" class="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium">Reset to Municipality Defaults</button>
+          </div>
+        </div>
+
+        <!-- ── 6. Financing (Expandable) ──────────────────── -->
+        <div class="accordion bg-white rounded-lg shadow-sm border border-gray-200" data-section="financing">
+          <div class="accordion-header p-4 flex items-center justify-between cursor-pointer select-none" data-target="financing">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-bold">6</span>
+              <span class="font-semibold text-gray-800">Financing Costs</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span id="financingTotal" class="text-sm font-semibold text-gray-700">$0</span>
+              <svg class="accordion-chevron w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+          <div class="accordion-body hidden px-4 pb-4 space-y-3" id="financingBody">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Equity Contribution (%)</label>
+                <div class="relative">
+                  <input type="number" id="equityPct" value="25" step="1" min="0" max="100" class="w-full pr-8 pl-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Interest Rate (%)</label>
+                <div class="relative">
+                  <input type="number" id="interestRate" value="7.5" step="0.25" min="0" max="30" class="w-full pr-8 pl-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                </div>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Construction Period</label>
+                <div class="relative">
+                  <input type="number" id="constructionPeriod" value="14" min="1" max="60" class="w-full pr-16 pl-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">months</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Commitment Fee (%)</label>
+                <div class="relative">
+                  <input type="number" id="commitmentFeePct" value="1.0" step="0.25" min="0" max="5" class="w-full pr-8 pl-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Lender Legal Fees</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <input type="text" id="lenderLegal" value="5,000" class="currency-input w-full pl-7 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+            </div>
+            <!-- Calculated financing summary -->
+            <div id="financingSummary" class="text-sm text-gray-600 bg-gray-50 rounded-md p-3 space-y-1"></div>
+          </div>
+        </div>
+
+        <!-- ── 7. Revenue (Expandable) ────────────────────── -->
+        <div class="accordion bg-white rounded-lg shadow-sm border border-gray-200" data-section="revenue">
+          <div class="accordion-header p-4 flex items-center justify-between cursor-pointer select-none" data-target="revenue">
+            <div class="flex items-center gap-3">
+              <span class="w-7 h-7 bg-green-100 text-green-700 rounded-full flex items-center justify-center text-xs font-bold">7</span>
+              <span class="font-semibold text-gray-800">Revenue</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span id="revenueNetTotal" class="text-sm font-semibold text-gray-700">$0</span>
+              <svg class="accordion-chevron w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </div>
+          </div>
+          <div class="accordion-body hidden px-4 pb-4 space-y-3" id="revenueBody">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Average Sale Price per Unit <span class="text-red-500">*</span></label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <input type="text" id="salePricePerUnit" class="currency-input w-full pl-7 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="750,000">
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Realtor Commission (%)</label>
+                <div class="relative">
+                  <input type="number" id="realtorCommission" value="3.5" step="0.25" min="0" max="10" class="w-full pr-8 pl-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Legal Fees per Sale</label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <input type="text" id="legalPerSale" value="2,500" class="currency-input w-full pl-7 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Marketing Costs</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <input type="text" id="marketingCosts" value="0" class="currency-input w-full pl-7 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+            </div>
+            <!-- Revenue summary -->
+            <div id="revenueSummary" class="text-sm text-gray-600 bg-gray-50 rounded-md p-3 space-y-1"></div>
+          </div>
+        </div>
+
+        <!-- Calculate Button -->
+        <button id="calculateBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-lg shadow-md transition-all duration-200 hover:shadow-lg active:transform active:scale-[0.98]">
+          Calculate Yield
+        </button>
+      </div>
+
+      <!-- ═══ RIGHT COLUMN: Results ═════════════════════════ -->
+      <div class="lg:sticky lg:top-6 lg:self-start">
+        <!-- Empty State -->
+        <div id="emptyState" class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <div class="text-6xl mb-4">&#127968;</div>
+          <h3 class="text-lg font-medium text-gray-500">Enter your project details</h3>
+          <p class="text-sm text-gray-400 mt-2">Fill in the form and click "Calculate Yield" to see results</p>
+        </div>
+
+        <!-- Results Card (hidden by default) -->
+        <div id="resultsCard" class="hidden">
+          <div id="resultsContainer" class="bg-white rounded-lg shadow-sm border-2 p-8 transition-all duration-300">
+            <!-- House Icon / Animation Area -->
+            <div class="text-center mb-6 relative" id="animationArea">
+              <div id="houseIcon" class="text-7xl transition-all duration-300">&#127968;</div>
+              <canvas id="explosionCanvas" class="absolute inset-0 w-full h-full pointer-events-none hidden"></canvas>
+            </div>
+
+            <!-- Yield Display -->
+            <div class="text-center mb-6">
+              <div class="text-sm font-medium text-gray-500 uppercase tracking-wider mb-1">Project Yield</div>
+              <div id="yieldValue" class="text-6xl font-bold transition-colors duration-300"></div>
+              <div id="yieldStatus" class="mt-2 text-lg font-semibold"></div>
+              <div id="yieldGap" class="mt-1 text-sm hidden"></div>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="border-t border-gray-200 pt-6 space-y-3">
+              <div class="flex justify-between"><span class="text-gray-600">Cost Before Financing</span><span id="resultCostBeforeFinancing" class="font-semibold text-gray-900"></span></div>
+              <div class="flex justify-between"><span class="text-gray-600">Financing Costs</span><span id="resultFinancingCosts" class="font-semibold text-gray-900"></span></div>
+              <div class="flex justify-between border-t border-gray-100 pt-2"><span class="text-gray-800 font-medium">Total Project Cost</span><span id="resultTotalCost" class="font-bold text-gray-900"></span></div>
+              <div class="flex justify-between mt-2"><span class="text-gray-600">Net Revenue</span><span id="resultNetRevenue" class="font-semibold text-gray-900"></span></div>
+              <div class="flex justify-between"><span class="text-gray-600">Profit</span><span id="resultProfit" class="font-semibold"></span></div>
+              <div class="flex justify-between"><span class="text-gray-600">Profit per Unit</span><span id="resultProfitPerUnit" class="font-semibold"></span></div>
+              <div class="flex justify-between"><span class="text-gray-600">ROI on Equity</span><span id="resultROI" class="font-semibold"></span></div>
+              <div class="flex justify-between"><span class="text-gray-600">Break-even / Unit</span><span id="resultBreakEven" class="font-semibold text-gray-900"></span></div>
+            </div>
+
+            <!-- What Would Need to Change -->
+            <div id="whatToChange" class="hidden mt-6 p-4 bg-red-50 rounded-lg border border-red-200">
+              <h4 class="text-sm font-semibold text-red-800 mb-2">What would need to change:</h4>
+              <ul class="text-sm text-red-700 space-y-1">
+                <li id="changeCosts"></li>
+                <li id="changeRevenue"></li>
+              </ul>
+            </div>
+
+            <!-- Detailed Cost Breakdown (always visible after calculation) -->
+            <div class="mt-6 border-t border-gray-200 pt-4">
+              <div class="text-sm font-semibold text-gray-700 mb-3">Cost & Revenue Breakdown</div>
+              <div id="detailedBreakdown" class="text-sm space-y-4"></div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-6 space-y-3">
+              <button id="saveDealBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors">Save This Deal</button>
+              <div class="grid grid-cols-2 gap-3">
+                <button id="adjustBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 px-4 rounded-lg transition-colors">Adjust Assumptions</button>
+                <button id="newAnalysisBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 px-4 rounded-lg transition-colors">New Analysis</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Deal History ─────────────────────────────────────── -->
+    <div id="historySection" class="mt-12 hidden">
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-gray-800">Deal History</h2>
+          <button id="clearHistoryBtn" class="text-sm text-red-600 hover:text-red-800 font-medium transition-colors">Clear All</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-200 text-left">
+                <th class="pb-3 pr-4 font-medium text-gray-500">Date</th>
+                <th class="pb-3 pr-4 font-medium text-gray-500">Project</th>
+                <th class="pb-3 pr-4 font-medium text-gray-500 text-right">Units</th>
+                <th class="pb-3 pr-4 font-medium text-gray-500 text-right">Yield</th>
+                <th class="pb-3 pr-4 font-medium text-gray-500 text-right">Total Cost</th>
+                <th class="pb-3 pr-4 font-medium text-gray-500 text-right">Profit</th>
+                <th class="pb-3 pr-4 font-medium text-gray-500 text-center">Status</th>
+                <th class="pb-3 font-medium text-gray-500 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+        <div id="emptyHistory" class="text-center py-8 text-gray-400 hidden">No saved deals yet.</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── Footer ───────────────────────────────────────────── -->
+  <footer class="mt-12 border-t border-gray-200 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <p class="text-sm text-gray-400 text-center">SSMUH Yield Calculator | For preliminary analysis only</p>
+    </div>
+  </footer>
+
+  <!-- ── Notification Toast ───────────────────────────────── -->
+  <div id="toast" class="fixed bottom-6 right-6 hidden z-50">
+    <div class="bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm flex items-center gap-2">
+      <span id="toastMessage"></span>
+    </div>
+  </div>
+
+  <script src="js/defaults.js"></script>
+  <script src="js/calculator.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

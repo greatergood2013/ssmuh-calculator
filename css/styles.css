@@ -1,0 +1,188 @@
+/* ── SSMUH Yield Calculator – Custom Styles ──────────────── */
+
+/* ── Accordion ─────────────────────────────────────────────── */
+.accordion-chevron {
+  transition: transform 0.2s ease;
+}
+
+.accordion-body {
+  transition: max-height 0.2s ease;
+}
+
+/* ── Cost Method Buttons (Triple-Entry) ────────────────────── */
+.cost-method-btn {
+  background: white;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.cost-method-btn:hover {
+  background: #f3f4f6;
+}
+
+.cost-method-btn.active {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+/* ── Breakdown Row Editable Inputs ─────────────────────────── */
+.breakdown-value-input {
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.breakdown-value-input:hover {
+  background: #f9fafb;
+}
+
+.breakdown-value-input:focus {
+  background: white;
+}
+
+/* ── Field flash (sync indicator) ──────────────────────────── */
+@keyframes field-flash {
+  0%   { background-color: transparent; }
+  30%  { background-color: #dbeafe; }
+  100% { background-color: transparent; }
+}
+
+.field-flash {
+  animation: field-flash 0.6s ease-out;
+}
+
+/* ── Bounce-once for passing deals ─────────────────────────── */
+@keyframes bounce-once {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.15); }
+  50%  { transform: scale(0.95); }
+  70%  { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.animate-bounce-once {
+  animation: bounce-once 0.6s ease-out;
+}
+
+/* ── Explosion out ─────────────────────────────────────────── */
+@keyframes explode-out {
+  0%   { transform: scale(1) rotate(0deg); opacity: 1; }
+  40%  { transform: scale(1.3) rotate(8deg); opacity: 1; }
+  100% { transform: scale(0) rotate(180deg); opacity: 0; }
+}
+
+.explode-out {
+  animation: explode-out 0.5s ease-in forwards;
+}
+
+/* ── Screen shake ──────────────────────────────────────────── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%      { transform: translateX(-3px); }
+  20%      { transform: translateX(3px); }
+  30%      { transform: translateX(-2px); }
+  40%      { transform: translateX(2px); }
+  50%      { transform: translateX(-1px); }
+  60%      { transform: translateX(1px); }
+}
+
+.screen-shake {
+  animation: shake 0.5s ease-out;
+}
+
+/* ── Red flash on fail container ───────────────────────────── */
+@keyframes red-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50%  { box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.border-red-400 {
+  animation: red-flash 1s ease-out;
+}
+
+/* ── Green glow on pass container ──────────────────────────── */
+@keyframes green-glow {
+  0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50%  { box-shadow: 0 0 20px 4px rgba(34, 197, 94, 0.3); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+.border-green-400 {
+  animation: green-glow 1s ease-out;
+}
+
+/* ── Number inputs – hide spinner arrows ───────────────────── */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* ── Smooth transitions for form inputs ────────────────────── */
+input {
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* ── History table row hover ───────────────────────────────── */
+#historyBody tr:hover {
+  background-color: #f9fafb;
+}
+
+/* ── Toast animation ───────────────────────────────────────── */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#toast:not(.hidden) {
+  animation: toast-in 0.25s ease-out;
+}
+
+/* ── Toggle switch ─────────────────────────────────────────── */
+.peer:checked ~ .peer-checked\:bg-blue-600 {
+  background-color: #2563eb;
+}
+
+/* ── Details/summary styling ───────────────────────────────── */
+details summary {
+  list-style: none;
+}
+
+details summary::-webkit-details-marker {
+  display: none;
+}
+
+details summary::before {
+  content: '+ ';
+  font-weight: bold;
+  color: #6b7280;
+}
+
+details[open] summary::before {
+  content: '- ';
+}
+
+/* ── Mobile responsive adjustments ─────────────────────────── */
+@media (max-width: 640px) {
+  #yieldValue {
+    font-size: 3rem;
+  }
+
+  #houseIcon {
+    font-size: 4rem;
+  }
+
+  .cost-method-btn {
+    font-size: 0.65rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .breakdown-value-input {
+    width: 5rem;
+    font-size: 0.75rem;
+  }
+}
