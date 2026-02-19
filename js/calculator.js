@@ -37,6 +37,7 @@ const Calculator = {
 
       hardCosts: {
         total: 0,
+        baseTotal: 0,  // Triple-entry total before breakdown edits
         inputMethod: 'perUnit',  // 'perSF' | 'perUnit' | 'total'
         costPerSF: Defaults.costPerSF.baseline,
         costPerUnit: Defaults.costPerSF.baseline * sfPerUnit,
@@ -154,36 +155,68 @@ const Calculator = {
   },
 
   // ── Triple-Entry Construction Cost Sync ────────────────────
+  //
+  // baseTotal tracks the triple-entry input (before breakdown edits).
+  // When breakdown items are manually edited, h.total may differ from
+  // baseTotal. The triple-entry fields always derive from baseTotal,
+  // while the pro forma uses h.total (the actual sum of line items).
+  //
   syncConstructionCosts(deal) {
     const h = deal.hardCosts;
     const numUnits = deal.projectInfo.numUnits;
     const totalSF  = deal.projectInfo.totalSF;
 
-    switch (h.inputMethod) {
-      case 'perSF':
-        h.total = h.costPerSF * totalSF;
-        h.costPerUnit = numUnits > 0 ? h.total / numUnits : 0;
-        break;
-      case 'perUnit':
-        h.total = h.costPerUnit * numUnits;
-        h.costPerSF = totalSF > 0 ? h.total / totalSF : 0;
-        break;
-      case 'total':
-        h.costPerUnit = numUnits > 0 ? h.total / numUnits : 0;
-        h.costPerSF = totalSF > 0 ? h.total / totalSF : 0;
-        break;
-    }
+    const anyModified = Object.values(h.breakdown).some(i => i.modified);
 
-    // Distribute across sub-items
+    // When breakdown items are modified, preserve the original baseTotal
+    // so it doesn't get overwritten by the back-calculated $/SF or $/Unit.
+    // baseTotal only changes when the user drives from the triple-entry fields.
+    if (!anyModified) {
+      switch (h.inputMethod) {
+        case 'perSF':
+          h.baseTotal = h.costPerSF * totalSF;
+          h.costPerUnit = numUnits > 0 ? h.baseTotal / numUnits : 0;
+          break;
+        case 'perUnit':
+          h.baseTotal = h.costPerUnit * numUnits;
+          h.costPerSF = totalSF > 0 ? h.baseTotal / totalSF : 0;
+          break;
+        case 'total':
+          h.baseTotal = h.total;
+          h.costPerUnit = numUnits > 0 ? h.baseTotal / numUnits : 0;
+          h.costPerSF = totalSF > 0 ? h.baseTotal / totalSF : 0;
+          break;
+      }
+    }
+    // When items ARE modified, baseTotal stays frozen at its last value
+
+    // Distribute across sub-items and compute actual total
     this._distributeHardCosts(deal);
   },
 
   _distributeHardCosts(deal) {
-    const total = deal.hardCosts.total;
-    for (const item of Object.values(deal.hardCosts.breakdown)) {
+    const h = deal.hardCosts;
+    const items = Object.values(h.breakdown);
+    const baseTotal = h.baseTotal || h.total;
+
+    // Unmodified items always get their % of the base triple-entry total.
+    // Modified items keep their user-set amounts.
+    for (const item of items) {
       if (!item.modified) {
-        item.amount = Math.round(total * item.pct);
+        item.amount = Math.round(baseTotal * item.pct);
       }
+    }
+
+    // Actual total = sum of all items (may differ from baseTotal if items were edited)
+    h.total = items.reduce((s, i) => s + i.amount, 0);
+
+    // If any items were modified, back-calculate $/SF and $/Unit from actual total
+    const anyModified = items.some(i => i.modified);
+    if (anyModified) {
+      const totalSF = deal.projectInfo.totalSF;
+      const numUnits = deal.projectInfo.numUnits;
+      h.costPerSF = totalSF > 0 ? h.total / totalSF : 0;
+      h.costPerUnit = numUnits > 0 ? h.total / numUnits : 0;
     }
   },
 
@@ -404,6 +437,13 @@ const Calculator = {
 
   resetHardCosts(deal) {
     deal.hardCosts.breakdown = this._initHardCostBreakdown();
+    // Restore total and $/SF, $/Unit back to baseTotal (the original triple-entry value)
+    const h = deal.hardCosts;
+    h.total = h.baseTotal;
+    const totalSF = deal.projectInfo.totalSF;
+    const numUnits = deal.projectInfo.numUnits;
+    h.costPerSF = totalSF > 0 ? h.baseTotal / totalSF : 0;
+    h.costPerUnit = numUnits > 0 ? h.baseTotal / numUnits : 0;
     this._distributeHardCosts(deal);
   },
 

@@ -224,6 +224,8 @@
     item.amount = value;
     item.modified = true;
     recalcAndRender();
+    // Refresh triple-entry fields to reflect new total from breakdown edits
+    updateTripleEntryFields();
   }
 
   function handleSoftBreakdownEdit(key, value) {
@@ -376,6 +378,7 @@
     // Reset buttons
     document.getElementById('resetHardCosts').addEventListener('click', () => {
       Calculator.resetHardCosts(deal);
+      updateTripleEntryFields();
       recalcAndRender();
       UI.toast('Hard cost distribution reset');
     });
