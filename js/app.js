@@ -74,6 +74,8 @@
       deal.hardCosts.costPerSF = val;
       deal.hardCosts.inputMethod = 'perSF';
       setActiveMethod('perSF');
+      // Clear modified flags — triple-entry always overrides line item edits
+      for (const item of Object.values(deal.hardCosts.breakdown)) item.modified = false;
       Calculator.syncConstructionCosts(deal);
       if (e.type === 'change') {
         UI.setCurrencyField('costPerUnit', deal.hardCosts.costPerUnit);
@@ -91,6 +93,8 @@
       deal.hardCosts.costPerUnit = UI.parseCurrency(document.getElementById('costPerUnit').value);
       deal.hardCosts.inputMethod = 'perUnit';
       setActiveMethod('perUnit');
+      // Clear modified flags — triple-entry always overrides line item edits
+      for (const item of Object.values(deal.hardCosts.breakdown)) item.modified = false;
       Calculator.syncConstructionCosts(deal);
       if (e.type === 'change') {
         document.getElementById('costPerSF').value = Math.round(deal.hardCosts.costPerSF);
@@ -108,6 +112,8 @@
       deal.hardCosts.total = UI.parseCurrency(document.getElementById('totalConstruction').value);
       deal.hardCosts.inputMethod = 'total';
       setActiveMethod('total');
+      // Clear modified flags — triple-entry always overrides line item edits
+      for (const item of Object.values(deal.hardCosts.breakdown)) item.modified = false;
       Calculator.syncConstructionCosts(deal);
       if (e.type === 'change') {
         document.getElementById('costPerSF').value = Math.round(deal.hardCosts.costPerSF);
@@ -171,6 +177,8 @@
       deal.softCosts.pctOfHard = val;
       deal.softCosts.inputMethod = 'pctOfHard';
       setSoftActiveMethod('pctOfHard');
+      // Clear modified flags — triple-entry always overrides line item edits
+      for (const item of Object.values(deal.softCosts.breakdown)) item.modified = false;
       Calculator.syncSoftCosts(deal);
       if (e.type === 'change') {
         UI.setCurrencyField('softCostPerUnit', deal.softCosts.costPerUnit);
@@ -188,6 +196,8 @@
       deal.softCosts.costPerUnit = UI.parseCurrency(document.getElementById('softCostPerUnit').value);
       deal.softCosts.inputMethod = 'perUnit';
       setSoftActiveMethod('perUnit');
+      // Clear modified flags — triple-entry always overrides line item edits
+      for (const item of Object.values(deal.softCosts.breakdown)) item.modified = false;
       Calculator.syncSoftCosts(deal);
       if (e.type === 'change') {
         document.getElementById('softCostPct').value = deal.softCosts.pctOfHard.toFixed(1);
@@ -205,6 +215,8 @@
       deal.softCosts.total = UI.parseCurrency(document.getElementById('softCostTotal').value);
       deal.softCosts.inputMethod = 'total';
       setSoftActiveMethod('total');
+      // Clear modified flags — triple-entry always overrides line item edits
+      for (const item of Object.values(deal.softCosts.breakdown)) item.modified = false;
       Calculator.syncSoftCosts(deal);
       if (e.type === 'change') {
         document.getElementById('softCostPct').value = deal.softCosts.pctOfHard.toFixed(1);
