@@ -46,7 +46,11 @@ const Calculator = {
 
       softCosts: {
         total: 0,
-        basePct: 0,    // Computed dynamically from line items in _calcSoftCosts
+        baseTotal: 0,       // Triple-entry total before breakdown edits
+        inputMethod: 'pctOfHard',  // 'pctOfHard' | 'perUnit' | 'total'
+        pctOfHard: 0,        // Computed or user-entered % of hard costs
+        costPerUnit: 0,      // Soft cost per unit
+        basePct: 0,          // Default % from line items (for label display)
         delta: 0,
         revisedPct: 0,
         breakdown: this._initSoftCostBreakdown(),
@@ -220,11 +224,75 @@ const Calculator = {
     }
   },
 
+  // ── Triple-Entry Soft Cost Sync ───────────────────────────
+  //
+  // Mirrors the hard cost pattern. The triple-entry sets a baseTotal.
+  // Line items distribute from that baseTotal. If a line item is
+  // manually edited, baseTotal stays frozen and the actual total
+  // becomes the sum of all items (may differ from baseTotal).
+  //
+  syncSoftCosts(deal) {
+    const s = deal.softCosts;
+    const numUnits = deal.projectInfo.numUnits;
+    const hardTotal = deal.hardCosts.total;
+
+    // On first call (init), compute natural default from line item weights
+    // so the triple-entry fields show the correct starting values.
+    if (s.baseTotal === 0 && hardTotal > 0) {
+      const naturalTotal = this._computeNaturalSoftTotal(deal);
+      s.baseTotal = naturalTotal;
+      s.pctOfHard = hardTotal > 0 ? (naturalTotal / hardTotal) * 100 : 0;
+      s.costPerUnit = numUnits > 0 ? naturalTotal / numUnits : 0;
+    }
+
+    const anyModified = Object.values(s.breakdown).some(i => i.modified);
+
+    if (!anyModified) {
+      switch (s.inputMethod) {
+        case 'pctOfHard':
+          s.baseTotal = hardTotal * (s.pctOfHard / 100);
+          s.costPerUnit = numUnits > 0 ? s.baseTotal / numUnits : 0;
+          break;
+        case 'perUnit':
+          s.baseTotal = s.costPerUnit * numUnits;
+          s.pctOfHard = hardTotal > 0 ? (s.baseTotal / hardTotal) * 100 : 0;
+          break;
+        case 'total':
+          s.baseTotal = s.total;
+          s.costPerUnit = numUnits > 0 ? s.baseTotal / numUnits : 0;
+          s.pctOfHard = hardTotal > 0 ? (s.baseTotal / hardTotal) * 100 : 0;
+          break;
+      }
+    }
+    // When items ARE modified, baseTotal stays frozen
+
+    // Distribute across line items and compute actual total
+    this._distributeSoftCosts(deal);
+  },
+
+  // Compute the natural soft cost total from default line item definitions
+  _computeNaturalSoftTotal(deal) {
+    const hardTotal = deal.hardCosts.total;
+    let total = 0;
+    for (const [key, def] of Object.entries(Defaults.softCostBreakdown)) {
+      if (def.formula === 'buildingPermit') {
+        total += Defaults.calculateBuildingPermit(hardTotal);
+      } else if (def.formula === 'devPermit') {
+        total += Defaults.calculateDevPermit(hardTotal);
+      } else if (def.fixed != null && def.pct == null) {
+        total += def.fixed;
+      } else if (def.pct != null) {
+        total += hardTotal * (def.pct / 100);
+      }
+    }
+    return Math.round(total);
+  },
+
   // ── Master Calculation ─────────────────────────────────────
   calculate(deal) {
     this._calcLand(deal);
     this.syncConstructionCosts(deal);
-    this._calcSoftCosts(deal);
+    this.syncSoftCosts(deal);
     this._calcContingency(deal);
     this._calcMunicipal(deal);
     this._calcFinancing(deal);
@@ -240,50 +308,76 @@ const Calculator = {
     deal.landAcquisition.total = b.purchasePrice.amount + b.legalDD.amount + b.closingCostsAmount.amount;
   },
 
-  // ── Soft Costs with delta tracking ─────────────────────────
-  _calcSoftCosts(deal) {
+  // ── Distribute soft costs across line items ────────────────
+  //
+  // Each line item has a "default weight" — based on its type (%, fixed, formula).
+  // We compute a default total from those weights, then each item gets:
+  //   unmodified: (its default weight / total default weight) * baseTotal
+  //   modified:   keeps its user-set amount
+  // Total = sum of all items.
+  //
+  _distributeSoftCosts(deal) {
     const hardTotal = deal.hardCosts.total;
     const s = deal.softCosts;
-    let total = 0;
-    let baseTotal = 0;
-    let deltaSum = 0;
+    const baseTotal = s.baseTotal || 0;
+
+    // Step 1: Compute default weight for each item (what it would be at its
+    // natural percentage/fixed/formula setting). These weights determine the
+    // proportional distribution when the user sets a custom total.
+    const weights = {};
+    let totalDefaultWeight = 0;
 
     for (const [key, item] of Object.entries(s.breakdown)) {
-      // Formula-based items
+      let w = 0;
       if (item.formula === 'buildingPermit') {
-        const defaultAmt = Defaults.calculateBuildingPermit(hardTotal);
-        if (!item.modified) item.amount = Math.round(defaultAmt);
-        const baseAmt = defaultAmt;
-        if (item.modified) deltaSum += item.amount - baseAmt;
-        baseTotal += baseAmt;
+        w = Defaults.calculateBuildingPermit(hardTotal);
       } else if (item.formula === 'devPermit') {
-        const defaultAmt = Defaults.calculateDevPermit(hardTotal);
-        if (!item.modified) item.amount = Math.round(defaultAmt);
-        const baseAmt = defaultAmt;
-        if (item.modified) deltaSum += item.amount - baseAmt;
-        baseTotal += baseAmt;
+        w = Defaults.calculateDevPermit(hardTotal);
       } else if (item.fixed != null && item.pct == null) {
-        // Fixed-amount items (legal)
-        const baseAmt = Defaults.softCostBreakdown[key] ? (Defaults.softCostBreakdown[key].fixed || 0) : 0;
-        if (!item.modified) item.amount = item.fixed;
-        if (item.modified) deltaSum += item.amount - baseAmt;
-        baseTotal += baseAmt;
+        w = item.fixed;
       } else if (item.pct != null) {
-        // Percentage of hard costs
-        const baseAmt = hardTotal * (item.pct / 100);
-        if (!item.modified) item.amount = Math.round(baseAmt);
-        if (item.modified) deltaSum += item.amount - Math.round(baseAmt);
-        baseTotal += baseAmt;
+        w = hardTotal * (item.pct / 100);
       }
-
-      total += item.amount;
+      weights[key] = w;
+      totalDefaultWeight += w;
     }
 
-    s.total = total;
+    // Step 2: Distribute baseTotal proportionally to unmodified items
+    let deltaSum = 0;
+    for (const [key, item] of Object.entries(s.breakdown)) {
+      const defaultAmt = weights[key];
+      if (!item.modified) {
+        // Proportional share of baseTotal
+        if (totalDefaultWeight > 0 && baseTotal > 0) {
+          item.amount = Math.round(baseTotal * (defaultAmt / totalDefaultWeight));
+        } else {
+          item.amount = Math.round(defaultAmt);
+        }
+      } else {
+        // Modified items keep their amount; track delta from what it would have been
+        const wouldBe = totalDefaultWeight > 0 && baseTotal > 0
+          ? Math.round(baseTotal * (defaultAmt / totalDefaultWeight))
+          : Math.round(defaultAmt);
+        deltaSum += item.amount - wouldBe;
+      }
+    }
+
+    // Step 3: Actual total = sum of all items
+    const items = Object.values(s.breakdown);
+    s.total = items.reduce((sum, i) => sum + i.amount, 0);
     s.delta = Math.round(deltaSum);
-    // basePct is now computed from the actual default line items (not a static label)
-    s.basePct = hardTotal > 0 ? (baseTotal / hardTotal) * 100 : 0;
-    s.revisedPct = hardTotal > 0 ? (total / hardTotal) * 100 : 0;
+
+    // Step 4: Back-calculate % and $/unit from actual total when items are modified
+    const anyModified = items.some(i => i.modified);
+    if (anyModified) {
+      const numUnits = deal.projectInfo.numUnits;
+      s.pctOfHard = hardTotal > 0 ? (s.total / hardTotal) * 100 : 0;
+      s.costPerUnit = numUnits > 0 ? s.total / numUnits : 0;
+    }
+
+    // basePct = what the default items would produce as % of hard costs (for label)
+    s.basePct = hardTotal > 0 ? (totalDefaultWeight / hardTotal) * 100 : 0;
+    s.revisedPct = hardTotal > 0 ? (s.total / hardTotal) * 100 : 0;
   },
 
   // ── Contingency ────────────────────────────────────────────
@@ -433,6 +527,14 @@ const Calculator = {
   resetSoftCosts(deal) {
     deal.softCosts.breakdown = this._initSoftCostBreakdown();
     deal.softCosts.delta = 0;
+    // Restore total and $/unit, % back to baseTotal
+    const s = deal.softCosts;
+    s.total = s.baseTotal;
+    const hardTotal = deal.hardCosts.total;
+    const numUnits = deal.projectInfo.numUnits;
+    s.pctOfHard = hardTotal > 0 ? (s.baseTotal / hardTotal) * 100 : 0;
+    s.costPerUnit = numUnits > 0 ? s.baseTotal / numUnits : 0;
+    this._distributeSoftCosts(deal);
   },
 
   resetHardCosts(deal) {

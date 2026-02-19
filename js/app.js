@@ -23,10 +23,13 @@
     deal = Calculator.createDealModel();
     syncModelFromForm();
     recalcAndRender();
+    // Initialize soft cost triple-entry fields with computed defaults
+    updateSoftTripleEntryFields();
 
     bindCurrencyFormatting();
     bindAccordions();
     bindTripleEntry();
+    bindSoftTripleEntry();
     bindFormInputs();
     bindButtons();
     bindMunicipalitySelector();
@@ -78,7 +81,7 @@
         UI.flashField('costPerUnit');
         UI.flashField('totalConstruction');
       }
-      recalcAndRender();
+      recalcAndRender({ updateSoftFields: true });
     }
     document.getElementById('costPerSF').addEventListener('change', handleCostPerSF);
     document.getElementById('costPerSF').addEventListener('input', handleCostPerSF);
@@ -95,7 +98,7 @@
         UI.flashField('costPerSF');
         UI.flashField('totalConstruction');
       }
-      recalcAndRender();
+      recalcAndRender({ updateSoftFields: true });
     }
     document.getElementById('costPerUnit').addEventListener('change', handleCostPerUnit);
     document.getElementById('costPerUnit').addEventListener('input', handleCostPerUnit);
@@ -112,7 +115,7 @@
         UI.flashField('costPerSF');
         UI.flashField('costPerUnit');
       }
-      recalcAndRender();
+      recalcAndRender({ updateSoftFields: true });
     }
     document.getElementById('totalConstruction').addEventListener('change', handleTotalConstruction);
     document.getElementById('totalConstruction').addEventListener('input', handleTotalConstruction);
@@ -123,7 +126,7 @@
       deal.projectInfo.totalSF = deal.projectInfo.sfPerUnit * deal.projectInfo.numUnits;
       Calculator.syncConstructionCosts(deal);
       updateTripleEntryFields();
-      recalcAndRender();
+      recalcAndRender({ updateSoftFields: true });
     }
     document.getElementById('numUnits').addEventListener('change', handleNumUnits);
     document.getElementById('numUnits').addEventListener('input', handleNumUnits);
@@ -133,7 +136,7 @@
       deal.projectInfo.totalSF = deal.projectInfo.sfPerUnit * deal.projectInfo.numUnits;
       Calculator.syncConstructionCosts(deal);
       updateTripleEntryFields();
-      recalcAndRender();
+      recalcAndRender({ updateSoftFields: true });
     }
     document.getElementById('sfPerUnit').addEventListener('change', handleSfPerUnit);
     document.getElementById('sfPerUnit').addEventListener('input', handleSfPerUnit);
@@ -149,6 +152,82 @@
     document.getElementById('costPerSF').value = Math.round(deal.hardCosts.costPerSF);
     UI.setCurrencyField('costPerUnit', deal.hardCosts.costPerUnit);
     UI.setCurrencyField('totalConstruction', deal.hardCosts.total);
+  }
+
+  // ── Triple-Entry Soft Cost Sync ──────────────────────────────
+  function bindSoftTripleEntry() {
+    // Method selector buttons
+    document.querySelectorAll('.soft-method-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.soft-method-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        deal.softCosts.inputMethod = btn.dataset.method;
+      });
+    });
+
+    // % of Hard Costs
+    function handleSoftPct(e) {
+      const val = parseFloat(document.getElementById('softCostPct').value) || 0;
+      deal.softCosts.pctOfHard = val;
+      deal.softCosts.inputMethod = 'pctOfHard';
+      setSoftActiveMethod('pctOfHard');
+      Calculator.syncSoftCosts(deal);
+      if (e.type === 'change') {
+        UI.setCurrencyField('softCostPerUnit', deal.softCosts.costPerUnit);
+        UI.setCurrencyField('softCostTotal', deal.softCosts.total);
+        UI.flashField('softCostPerUnit');
+        UI.flashField('softCostTotal');
+      }
+      recalcAndRender();
+    }
+    document.getElementById('softCostPct').addEventListener('change', handleSoftPct);
+    document.getElementById('softCostPct').addEventListener('input', handleSoftPct);
+
+    // Cost per Unit
+    function handleSoftPerUnit(e) {
+      deal.softCosts.costPerUnit = UI.parseCurrency(document.getElementById('softCostPerUnit').value);
+      deal.softCosts.inputMethod = 'perUnit';
+      setSoftActiveMethod('perUnit');
+      Calculator.syncSoftCosts(deal);
+      if (e.type === 'change') {
+        document.getElementById('softCostPct').value = deal.softCosts.pctOfHard.toFixed(1);
+        UI.setCurrencyField('softCostTotal', deal.softCosts.total);
+        UI.flashField('softCostPct');
+        UI.flashField('softCostTotal');
+      }
+      recalcAndRender();
+    }
+    document.getElementById('softCostPerUnit').addEventListener('change', handleSoftPerUnit);
+    document.getElementById('softCostPerUnit').addEventListener('input', handleSoftPerUnit);
+
+    // Total Soft Costs
+    function handleSoftTotal(e) {
+      deal.softCosts.total = UI.parseCurrency(document.getElementById('softCostTotal').value);
+      deal.softCosts.inputMethod = 'total';
+      setSoftActiveMethod('total');
+      Calculator.syncSoftCosts(deal);
+      if (e.type === 'change') {
+        document.getElementById('softCostPct').value = deal.softCosts.pctOfHard.toFixed(1);
+        UI.setCurrencyField('softCostPerUnit', deal.softCosts.costPerUnit);
+        UI.flashField('softCostPct');
+        UI.flashField('softCostPerUnit');
+      }
+      recalcAndRender();
+    }
+    document.getElementById('softCostTotal').addEventListener('change', handleSoftTotal);
+    document.getElementById('softCostTotal').addEventListener('input', handleSoftTotal);
+  }
+
+  function setSoftActiveMethod(method) {
+    document.querySelectorAll('.soft-method-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.soft-method-btn[data-method="${method}"]`);
+    if (btn) btn.classList.add('active');
+  }
+
+  function updateSoftTripleEntryFields() {
+    document.getElementById('softCostPct').value = deal.softCosts.pctOfHard.toFixed(1);
+    UI.setCurrencyField('softCostPerUnit', deal.softCosts.costPerUnit);
+    UI.setCurrencyField('softCostTotal', deal.softCosts.total);
   }
 
   // ── Bind main form inputs ──────────────────────────────────
@@ -223,7 +302,7 @@
     if (!item) return;
     item.amount = value;
     item.modified = true;
-    recalcAndRender();
+    recalcAndRender({ updateSoftFields: true });
     // Refresh triple-entry fields to reflect new total from breakdown edits
     updateTripleEntryFields();
   }
@@ -234,6 +313,8 @@
     item.amount = value;
     item.modified = true;
     recalcAndRender();
+    // Refresh triple-entry fields to reflect new total from breakdown edits
+    updateSoftTripleEntryFields();
   }
 
   function handleMunicipalBreakdownEdit(key, value) {
@@ -251,6 +332,7 @@
   function syncModelFromForm() {
     syncLandFromForm();
     syncHardCostsFromForm();
+    syncSoftCostsFromForm();
     syncFinancingFromForm();
     syncRevenueFromForm();
     deal.contingency.pct = parseFloat(document.getElementById('contingencyPct').value) || 10;
@@ -270,6 +352,12 @@
     deal.hardCosts.costPerSF = parseFloat(document.getElementById('costPerSF').value) || 275;
     deal.hardCosts.costPerUnit = UI.parseCurrency(document.getElementById('costPerUnit').value);
     deal.hardCosts.total = UI.parseCurrency(document.getElementById('totalConstruction').value);
+  }
+
+  function syncSoftCostsFromForm() {
+    deal.softCosts.pctOfHard = parseFloat(document.getElementById('softCostPct').value) || 0;
+    deal.softCosts.costPerUnit = UI.parseCurrency(document.getElementById('softCostPerUnit').value);
+    deal.softCosts.total = UI.parseCurrency(document.getElementById('softCostTotal').value);
   }
 
   function syncFinancingFromForm() {
@@ -307,6 +395,12 @@
     UI.setCurrencyField('totalConstruction', deal.hardCosts.total);
     setActiveMethod(deal.hardCosts.inputMethod);
 
+    // Soft costs triple-entry
+    document.getElementById('softCostPct').value = deal.softCosts.pctOfHard.toFixed(1);
+    UI.setCurrencyField('softCostPerUnit', deal.softCosts.costPerUnit);
+    UI.setCurrencyField('softCostTotal', deal.softCosts.total);
+    setSoftActiveMethod(deal.softCosts.inputMethod);
+
     // Contingency
     document.getElementById('contingencyPct').value = deal.contingency.pct;
 
@@ -325,10 +419,15 @@
   }
 
   // ── Master recalc + re-render ──────────────────────────────
-  function recalcAndRender() {
+  function recalcAndRender(opts) {
     Calculator.calculate(deal);
     UI.updateSectionTotals(deal);
     renderBreakdowns();
+    // Optionally update soft cost triple-entry fields
+    // (when hard costs or project size change, soft costs need to stay in sync)
+    if (opts && opts.updateSoftFields) {
+      updateSoftTripleEntryFields();
+    }
   }
 
   function renderBreakdowns() {
@@ -379,11 +478,12 @@
     document.getElementById('resetHardCosts').addEventListener('click', () => {
       Calculator.resetHardCosts(deal);
       updateTripleEntryFields();
-      recalcAndRender();
+      recalcAndRender({ updateSoftFields: true });
       UI.toast('Hard cost distribution reset');
     });
     document.getElementById('resetSoftCosts').addEventListener('click', () => {
       Calculator.resetSoftCosts(deal);
+      updateSoftTripleEntryFields();
       recalcAndRender();
       UI.toast('Soft costs reset to defaults');
     });
@@ -437,6 +537,8 @@
     UI.hideResults();
     UI.clearFieldErrors();
     recalcAndRender();
+    // Update soft cost triple-entry fields after recalc sets natural defaults
+    updateSoftTripleEntryFields();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -457,6 +559,7 @@
     if (landCost > 0) UI.setCurrencyField('landCost', landCost);
     if (salePrice > 0) UI.setCurrencyField('salePricePerUnit', salePrice);
     recalcAndRender();
+    updateSoftTripleEntryFields();
     UI.toast('Victoria-area defaults applied');
   }
 
@@ -482,8 +585,14 @@
       const saved = Storage.getDealById(row.dataset.dealId);
       if (saved && saved.dealSnapshot) {
         deal = saved.dealSnapshot;
+        // Ensure softCosts has the new triple-entry fields (backward compat)
+        if (deal.softCosts.baseTotal === undefined) deal.softCosts.baseTotal = 0;
+        if (deal.softCosts.inputMethod === undefined) deal.softCosts.inputMethod = 'pctOfHard';
+        if (deal.softCosts.pctOfHard === undefined) deal.softCosts.pctOfHard = 0;
+        if (deal.softCosts.costPerUnit === undefined) deal.softCosts.costPerUnit = 0;
         loadFormFromModel();
         recalcAndRender();
+        updateSoftTripleEntryFields();
         handleCalculate();
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }

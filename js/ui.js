@@ -151,7 +151,7 @@ const UI = {
 
     // Soft cost label with delta display
     const s = deal.softCosts;
-    let softLabel = `Soft Costs: ${s.basePct.toFixed(1)}%`;
+    let softLabel = `Soft Costs: ${s.pctOfHard.toFixed(1)}%`;
     if (s.delta !== 0) {
       const sign = s.delta > 0 ? '+' : '-';
       softLabel += ` ${sign} $${Math.abs(s.delta).toLocaleString()}`;

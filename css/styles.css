@@ -26,6 +26,23 @@
   border-color: #2563eb;
 }
 
+/* ── Soft Cost Method Buttons (Triple-Entry) ─────────────── */
+.soft-method-btn {
+  background: white;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.soft-method-btn:hover {
+  background: #f3f4f6;
+}
+
+.soft-method-btn.active {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
 /* ── Breakdown Row Editable Inputs ─────────────────────────── */
 .breakdown-value-input {
   transition: border-color 0.15s, background 0.15s;
@@ -176,7 +193,8 @@ details[open] summary::before {
     font-size: 4rem;
   }
 
-  .cost-method-btn {
+  .cost-method-btn,
+  .soft-method-btn {
     font-size: 0.65rem;
     padding: 0.25rem 0.5rem;
   }
