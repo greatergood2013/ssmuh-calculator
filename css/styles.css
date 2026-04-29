@@ -204,3 +204,25 @@ details[open] summary::before {
     font-size: 0.75rem;
   }
 }
+
+/* ── All-in mode: excluded sections ────────────────────────── */
+.all-in-excluded {
+  position: relative;
+}
+
+/* Semi-transparent overlay dims the section without blocking pointer events */
+.all-in-excluded::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.68);
+  border-radius: 0.5rem;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Override / Include labels must sit above the overlay */
+.section-override-label {
+  position: relative;
+  z-index: 2;
+}

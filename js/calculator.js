@@ -46,7 +46,7 @@ const Calculator = {
 
       softCosts: {
         total: 0,
-        baseTotal: 0,       // Triple-entry total before breakdown edits
+        baseTotal: null,    // null = never initialized; 0 = explicitly set to zero
         inputMethod: 'pctOfHard',  // 'pctOfHard' | 'perUnit' | 'total'
         pctOfHard: 0,        // Computed or user-entered % of hard costs
         costPerUnit: 0,      // Soft cost per unit
@@ -106,6 +106,9 @@ const Calculator = {
         costReduction: 0,
         revenueIncrease: 0,
       },
+
+      allIn: false,
+      allInOverrides: { soft: false, contingency: false, municipal: false, financing: false },
     };
   },
 
@@ -238,7 +241,7 @@ const Calculator = {
 
     // On first call (init), compute natural default from line item weights
     // so the triple-entry fields show the correct starting values.
-    if (s.baseTotal === 0 && hardTotal > 0) {
+    if (s.baseTotal === null && hardTotal > 0) {
       const naturalTotal = this._computeNaturalSoftTotal(deal);
       s.baseTotal = naturalTotal;
       s.pctOfHard = hardTotal > 0 ? (naturalTotal / hardTotal) * 100 : 0;
@@ -319,7 +322,7 @@ const Calculator = {
   _distributeSoftCosts(deal) {
     const hardTotal = deal.hardCosts.total;
     const s = deal.softCosts;
-    const baseTotal = s.baseTotal || 0;
+    const baseTotal = s.baseTotal !== null ? s.baseTotal : 0;
 
     // Step 1: Compute default weight for each item (what it would be at its
     // natural percentage/fixed/formula setting). These weights determine the
@@ -347,10 +350,13 @@ const Calculator = {
     for (const [key, item] of Object.entries(s.breakdown)) {
       const defaultAmt = weights[key];
       if (!item.modified) {
-        // Proportional share of baseTotal
-        if (totalDefaultWeight > 0 && baseTotal > 0) {
-          item.amount = Math.round(baseTotal * (defaultAmt / totalDefaultWeight));
+        if (s.baseTotal !== null) {
+          // baseTotal explicitly set (even if zero) — distribute proportionally or zero-out
+          item.amount = (totalDefaultWeight > 0 && baseTotal > 0)
+            ? Math.round(baseTotal * (defaultAmt / totalDefaultWeight))
+            : 0;
         } else {
+          // Not yet initialized — show natural default amounts
           item.amount = Math.round(defaultAmt);
         }
       } else {
@@ -382,7 +388,11 @@ const Calculator = {
 
   // ── Contingency ────────────────────────────────────────────
   _calcContingency(deal) {
-    const base = deal.hardCosts.total + deal.softCosts.total + deal.municipalFees.total;
+    const ai = deal.allIn || false;
+    const ov = deal.allInOverrides || {};
+    const effectiveSoft    = (!ai || ov.soft)     ? deal.softCosts.total    : 0;
+    const effectiveMunicipal = (!ai || ov.municipal) ? deal.municipalFees.total : 0;
+    const base = deal.hardCosts.total + effectiveSoft + effectiveMunicipal;
     deal.contingency.amount = Math.round(base * (deal.contingency.pct / 100));
   },
 
@@ -415,11 +425,13 @@ const Calculator = {
   //
   _calcFinancing(deal) {
     const landTotal = deal.landAcquisition.total;
+    const ai = deal.allIn || false;
+    const ov = deal.allInOverrides || {};
     const constructionSubtotal =
       deal.hardCosts.total +
-      deal.softCosts.total +
-      deal.contingency.amount +
-      deal.municipalFees.total;
+      ((!ai || ov.soft)        ? deal.softCosts.total    : 0) +
+      ((!ai || ov.contingency) ? deal.contingency.amount : 0) +
+      ((!ai || ov.municipal)   ? deal.municipalFees.total : 0);
 
     const totalProjectSubtotal = landTotal + constructionSubtotal;
 
@@ -486,14 +498,21 @@ const Calculator = {
 
   // ── Final Results ──────────────────────────────────────────
   _calcResults(deal) {
+    const ai = deal.allIn || false;
+    const ov = deal.allInOverrides || {};
+    const effectiveSoft        = (!ai || ov.soft)        ? deal.softCosts.total    : 0;
+    const effectiveContingency = (!ai || ov.contingency) ? deal.contingency.amount : 0;
+    const effectiveMunicipal   = (!ai || ov.municipal)   ? deal.municipalFees.total : 0;
+    const effectiveFinancing   = (!ai || ov.financing)   ? deal.financing.total    : 0;
+
     const costBeforeFinancing =
       deal.landAcquisition.total +
       deal.hardCosts.total +
-      deal.softCosts.total +
-      deal.contingency.amount +
-      deal.municipalFees.total;
+      effectiveSoft +
+      effectiveContingency +
+      effectiveMunicipal;
 
-    const totalCost = costBeforeFinancing + deal.financing.total;
+    const totalCost = costBeforeFinancing + effectiveFinancing;
 
     const netRevenue = deal.revenue.total;
     const profit = netRevenue - totalCost;
