@@ -345,6 +345,14 @@ const UI = {
     const pct = (v, total) => total > 0 ? ((v / total) * 100).toFixed(1) + '%' : '0%';
     const tpc = deal.results.totalProjectCost;
 
+    // Use effective (all-in adjusted) values so breakdown matches result totals
+    const ai = deal.allIn || false;
+    const ov = deal.allInOverrides || {};
+    const eSoft  = (!ai || ov.soft)        ? deal.softCosts.total    : 0;
+    const eCont  = (!ai || ov.contingency) ? deal.contingency.amount : 0;
+    const eMuni  = (!ai || ov.municipal)   ? deal.municipalFees.total : 0;
+    const eFin   = (!ai || ov.financing)   ? deal.financing.total    : 0;
+
     const makeTable = (title, rows) => {
       let html = `<div><div class="font-semibold text-gray-800 mb-1">${title}</div><table class="w-full text-xs">`;
       for (const [label, amount] of rows) {
@@ -359,11 +367,11 @@ const UI = {
     const costRows = [
       ['Land Acquisition', deal.landAcquisition.total],
       ['Hard Costs', deal.hardCosts.total],
-      ['Soft Costs', deal.softCosts.total],
-      ['Contingency', deal.contingency.amount],
-      ['Municipal Fees', deal.municipalFees.total],
+      ['Soft Costs', eSoft],
+      ['Contingency', eCont],
+      ['Municipal Fees', eMuni],
       ['TOTAL BEFORE FINANCING', deal.results.totalCostBeforeFinancing],
-      ['Financing Costs', deal.financing.total],
+      ['Financing Costs', eFin],
       ['TOTAL PROJECT COST', tpc],
     ];
 
@@ -496,5 +504,50 @@ const UI = {
     if (!el) return;
     el.classList.add('field-flash');
     setTimeout(() => el.classList.remove('field-flash'), 600);
+  },
+
+  // ── All-in mode visual state ───────────────────────────────
+  applyAllInVisuals(deal) {
+    if (!deal) return;
+    const ai = deal.allIn || false;
+    const ov = deal.allInOverrides || {};
+
+    // Sync all-in toggle appearance
+    const allInToggle = document.getElementById('allInToggle');
+    const allInLabel  = document.getElementById('allInLabel');
+    if (allInToggle) allInToggle.checked = ai;
+    if (allInLabel) {
+      allInLabel.classList.toggle('bg-amber-100',   ai);
+      allInLabel.classList.toggle('border-amber-400', ai);
+      allInLabel.classList.toggle('text-amber-800',  ai);
+      allInLabel.classList.toggle('bg-gray-100',    !ai);
+      allInLabel.classList.toggle('border-gray-300', !ai);
+      allInLabel.classList.toggle('text-gray-600',   !ai);
+    }
+
+    const sections = [
+      { key: 'soft',        wrapper: document.querySelector('.accordion[data-section="soft"]'),      overrideLabelId: 'softOverrideLabel',        overrideCheckId: 'softOverride' },
+      { key: 'contingency', wrapper: document.getElementById('contingencySection'),                  overrideLabelId: 'contingencyOverrideLabel', overrideCheckId: 'contingencyOverride' },
+      { key: 'municipal',   wrapper: document.querySelector('.accordion[data-section="municipal"]'), overrideLabelId: 'municipalOverrideLabel',   overrideCheckId: 'municipalOverride' },
+      { key: 'financing',   wrapper: document.querySelector('.accordion[data-section="financing"]'), overrideLabelId: 'financingOverrideLabel',   overrideCheckId: 'financingOverride' },
+    ];
+
+    for (const s of sections) {
+      if (!s.wrapper) continue;
+
+      const excluded = ai && !ov[s.key];
+      s.wrapper.classList.toggle('all-in-excluded', excluded);
+
+      const overrideLabel = document.getElementById(s.overrideLabelId);
+      const overrideCheck = document.getElementById(s.overrideCheckId);
+
+      if (overrideLabel) {
+        overrideLabel.classList.toggle('hidden', !ai);
+        overrideLabel.classList.toggle('flex', ai);
+      }
+      if (overrideCheck) {
+        overrideCheck.checked = !!(ov[s.key]);
+      }
+    }
   },
 };

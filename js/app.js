@@ -35,6 +35,7 @@
     bindMunicipalitySelector();
     bindBuildTypeSelector();
     bindShowZerosToggle();
+    bindAllIn();
 
     UI.renderHistory();
   }
@@ -50,11 +51,39 @@
   // ── Accordion click handlers ───────────────────────────────
   function bindAccordions() {
     document.querySelectorAll('.accordion-header').forEach(header => {
-      header.addEventListener('click', () => {
+      header.addEventListener('click', (e) => {
+        // Don't toggle accordion when clicking the all-in label or override labels
+        if (e.target.closest('#allInLabel') || e.target.closest('.section-override-label')) return;
         const target = header.dataset.target;
         if (target) UI.toggleAccordion(target);
       });
     });
+  }
+
+  // ── All-in pricing mode ────────────────────────────────────
+  function bindAllIn() {
+    const allInToggle = document.getElementById('allInToggle');
+
+    allInToggle.addEventListener('change', () => {
+      deal.allIn = allInToggle.checked;
+      // Toggling all-in resets all section overrides (select-all / select-none)
+      deal.allInOverrides = { soft: false, contingency: false, municipal: false, financing: false };
+      recalcAndRender();
+    });
+
+    function bindOverride(checkId, key) {
+      const cb = document.getElementById(checkId);
+      if (!cb) return;
+      cb.addEventListener('change', () => {
+        deal.allInOverrides[key] = cb.checked;
+        recalcAndRender();
+      });
+    }
+
+    bindOverride('softOverride',        'soft');
+    bindOverride('contingencyOverride', 'contingency');
+    bindOverride('municipalOverride',   'municipal');
+    bindOverride('financingOverride',   'financing');
   }
 
   // ── Triple-Entry Construction Cost Sync ────────────────────
@@ -428,12 +457,16 @@
     document.getElementById('realtorCommission').value = deal.revenue.breakdown.realtorCommission.pct;
     UI.setCurrencyField('legalPerSale', deal.revenue.breakdown.legalPerSale.fixed);
     UI.setCurrencyField('marketingCosts', deal.revenue.breakdown.marketingCosts.amount);
+
+    // All-in state
+    UI.applyAllInVisuals(deal);
   }
 
   // ── Master recalc + re-render ──────────────────────────────
   function recalcAndRender(opts) {
     Calculator.calculate(deal);
     UI.updateSectionTotals(deal);
+    UI.applyAllInVisuals(deal);
     renderBreakdowns();
     // Optionally update soft cost triple-entry fields
     // (when hard costs or project size change, soft costs need to stay in sync)
@@ -598,10 +631,13 @@
       if (saved && saved.dealSnapshot) {
         deal = saved.dealSnapshot;
         // Ensure softCosts has the new triple-entry fields (backward compat)
-        if (deal.softCosts.baseTotal === undefined) deal.softCosts.baseTotal = 0;
+        if (deal.softCosts.baseTotal === undefined) deal.softCosts.baseTotal = null;
         if (deal.softCosts.inputMethod === undefined) deal.softCosts.inputMethod = 'pctOfHard';
         if (deal.softCosts.pctOfHard === undefined) deal.softCosts.pctOfHard = 0;
         if (deal.softCosts.costPerUnit === undefined) deal.softCosts.costPerUnit = 0;
+        // All-in backward compat
+        if (deal.allIn === undefined) deal.allIn = false;
+        if (deal.allInOverrides === undefined) deal.allInOverrides = { soft: false, contingency: false, municipal: false, financing: false };
         loadFormFromModel();
         recalcAndRender();
         updateSoftTripleEntryFields();
