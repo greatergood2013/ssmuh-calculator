@@ -248,18 +248,245 @@ ${allInBanner}
   },
 
   // ── Email ──────────────────────────────────────────────────
-  toEmail(deal) {
+  //
+  // Copies a fully styled HTML version of the deal memo to the clipboard,
+  // then opens the default email client with the subject pre-filled.
+  // The user just pastes into the email body to get the formatted layout.
+  // Falls back to a plain-text mailto: body if ClipboardItem is unavailable.
+  //
+  async toEmail(deal) {
     if (!deal || !deal.results || !deal.results.totalProjectCost) {
       UI.toast('Please calculate the project first.');
       return;
     }
-    const m = this._meta(deal);
-    const subject = `SSMUH Analysis: ${m.name}`;
-    const body    = this._buildEmailBody(deal, m);
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const m       = this._meta(deal);
+    const subject = encodeURIComponent(`SSMUH Analysis: ${m.name}`);
+
+    if (navigator.clipboard && window.ClipboardItem) {
+      try {
+        const html  = this._buildEmailHTML(deal, m);
+        const plain = this._buildEmailPlain(deal, m);
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html':  new Blob([html],  { type: 'text/html'  }),
+            'text/plain': new Blob([plain], { type: 'text/plain' }),
+          }),
+        ]);
+        // Open email client with subject pre-filled, then instruct user to paste
+        setTimeout(() => { window.location.href = `mailto:?subject=${subject}`; }, 80);
+        UI.toast('Formatted content copied — paste it into the email body.');
+        return;
+      } catch (_) {
+        // ClipboardItem write failed (e.g. iframe sandbox) — fall through
+      }
+    }
+
+    // Fallback: open mailto: with plain-text body
+    const body = encodeURIComponent(this._buildEmailPlain(deal, m));
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
   },
 
-  _buildEmailBody(deal, m) {
+  // Styled HTML for pasting into an email composer.
+  // Uses a table-based layout with fully inline styles for maximum
+  // compatibility across Gmail, Outlook, and Apple Mail.
+  _buildEmailHTML(deal, m) {
+    const r    = deal.results;
+    const eff  = this._effectiveCosts(deal);
+    const pass = r.yieldPct >= 20;
+    const tpc  = r.totalProjectCost;
+
+    const yc = pass ? '#15803d' : '#b91c1c';    // yield colour
+    const pc = r.profit >= 0 ? '#15803d' : '#b91c1c'; // profit colour
+    const pctOfTotal = v => tpc > 0 ? (v / tpc * 100).toFixed(1) + '%' : '—';
+
+    const metricCell = (label, value, colour) => `
+      <td width="31%" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;padding:10px 12px;vertical-align:top;">
+        <div style="font-size:10px;color:#6b7280;font-family:Arial,sans-serif;">${label}</div>
+        <div style="font-size:14px;font-weight:700;margin-top:3px;font-family:Arial,sans-serif;${colour ? `color:${colour};` : ''}">${value}</div>
+      </td>`;
+
+    const spacerCell = `<td width="3%"></td>`;
+
+    const costRowHtml = (label, amt, style) => {
+      const isTotal    = style === 'total';
+      const isSubtotal = style === 'subtotal';
+      const isIndent   = style === 'indent';
+      const rowStyle   = isTotal    ? 'background:#f1f5f9;font-weight:700;border-top:2px solid #374151;'
+                       : isSubtotal ? 'font-weight:600;border-top:1px solid #d1d5db;'
+                       : '';
+      const labelStyle = isIndent ? 'color:#6b7280;font-size:10px;padding-left:14px;' : 'font-weight:' + (isTotal || isSubtotal ? '600' : '400') + ';';
+      const pctTd = isIndent ? '' : `<td style="text-align:right;padding:4px 6px;color:#9ca3af;font-size:10px;font-family:Arial,sans-serif;">${pctOfTotal(amt)}</td>`;
+      return `<tr style="${rowStyle}">
+        <td style="padding:4px 8px;font-size:11px;font-family:Arial,sans-serif;${labelStyle}">${label}</td>
+        <td style="text-align:right;padding:4px 8px;font-size:11px;font-family:Arial,sans-serif;">${this._fmt(amt)}</td>
+        ${isIndent ? '<td></td>' : pctTd}
+      </tr>`;
+    };
+
+    const costTableRows = [
+      costRowHtml('Land Acquisition',         deal.landAcquisition.total,                               'bold'),
+      costRowHtml('&nbsp;&nbsp;Purchase Price', deal.landAcquisition.breakdown.purchasePrice.amount,    'indent'),
+      costRowHtml('&nbsp;&nbsp;Legal / DD',     deal.landAcquisition.breakdown.legalDD.amount,          'indent'),
+      costRowHtml('&nbsp;&nbsp;Closing Costs',  deal.landAcquisition.breakdown.closingCostsAmount.amount,'indent'),
+      costRowHtml('Hard Costs',                deal.hardCosts.total,                                    'bold'),
+      costRowHtml('Soft Costs',                eff.soft,                                                'bold'),
+      costRowHtml('Contingency',               eff.contingency,                                         'bold'),
+      costRowHtml('Municipal Fees',            eff.municipal,                                           'bold'),
+      costRowHtml('Cost Before Financing',     r.totalCostBeforeFinancing,                              'subtotal'),
+      costRowHtml('Financing Costs',           eff.financing,                                           'bold'),
+      costRowHtml('Total Project Cost',        tpc,                                                     'total'),
+    ].join('');
+
+    const revRows = [
+      ['Gross Sales',               deal.revenue.breakdown.grossSales,                   false],
+      ['Less: Realtor Commission',  deal.revenue.breakdown.realtorCommission.amount,      'deduct'],
+      ['Less: Legal Fees',          deal.revenue.breakdown.legalPerSale.amount,           'deduct'],
+      ...(deal.revenue.breakdown.marketingCosts.amount > 0
+        ? [['Less: Marketing', deal.revenue.breakdown.marketingCosts.amount, 'deduct']] : []),
+      ['Net Revenue',               r.netRevenue,                                         'total'],
+    ];
+    const revTableRows = revRows.map(([lbl, amt, style]) => {
+      const isTotal  = style === 'total';
+      const isDeduct = style === 'deduct';
+      const rowStyle = isTotal ? 'background:#f1f5f9;font-weight:700;border-top:2px solid #374151;' : '';
+      const amtStyle = isDeduct ? 'color:#b91c1c;' : '';
+      const display  = amt === 0 ? 'display:none;' : '';
+      return `<tr style="${rowStyle}${display}">
+        <td style="padding:4px 8px;font-size:11px;font-family:Arial,sans-serif;">${lbl}</td>
+        <td style="text-align:right;padding:4px 8px;font-size:11px;font-family:Arial,sans-serif;${amtStyle}">${isDeduct ? '(' + this._fmt(amt) + ')' : this._fmt(amt)}</td>
+      </tr>`;
+    }).join('');
+
+    const finRows = [
+      ['Equity contribution', deal.financing.breakdown.equityPct + '%'],
+      ['Interest rate', deal.financing.breakdown.interestRate + '%'],
+      ['Construction period', deal.financing.breakdown.constructionPeriod + ' months'],
+      ['Loan amount (' + (deal.financing.breakdown.ltv * 100).toFixed(0) + '% LTV)', this._fmt(deal.financing.breakdown.loanAmount)],
+    ];
+    const finTableRows = finRows.map(([lbl, val]) =>
+      `<tr><td style="padding:3px 8px;font-size:11px;color:#6b7280;font-family:Arial,sans-serif;">${lbl}</td><td style="text-align:right;padding:3px 8px;font-size:11px;font-family:Arial,sans-serif;">${val}</td></tr>`
+    ).join('') +
+    `<tr style="border-top:1px solid #d1d5db;font-weight:700;">
+      <td style="padding:5px 8px;font-size:11px;font-family:Arial,sans-serif;">Total Financing</td>
+      <td style="text-align:right;padding:5px 8px;font-size:11px;font-family:Arial,sans-serif;">${this._fmt(eff.financing)}</td>
+    </tr>`;
+
+    const allInBanner = deal.allIn
+      ? `<tr><td style="padding:8px 20px;background:#fef3c7;border-bottom:1px solid #f59e0b;">
+           <span style="font-size:11px;color:#92400e;font-family:Arial,sans-serif;">⚠ All-in pricing mode active — hard costs treated as fully inclusive.</span>
+         </td></tr>`
+      : '';
+
+    return `
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;border-collapse:collapse;font-family:Arial,Helvetica,sans-serif;border:1px solid #e2e8f0;border-radius:8px;">
+
+  <!-- Header -->
+  <tr>
+    <td style="background:#1d4ed8;padding:20px 24px;border-radius:8px 8px 0 0;">
+      <div style="color:#ffffff;font-size:20px;font-weight:800;line-height:1;font-family:Arial,sans-serif;">SSMUH Yield Calculator</div>
+      <div style="color:#93c5fd;font-size:11px;margin-top:4px;font-family:Arial,sans-serif;">Small-Scale Multi-Unit Housing — Financial Analysis</div>
+    </td>
+  </tr>
+
+  <!-- Meta bar -->
+  <tr>
+    <td style="padding:10px 24px;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="font-size:11px;color:#374151;font-family:Arial,sans-serif;padding-right:12px;"><strong>Project:</strong> ${m.name}</td>
+          <td style="font-size:11px;color:#374151;font-family:Arial,sans-serif;padding-right:12px;"><strong>Type:</strong> ${m.typeLabel}</td>
+          <td style="font-size:11px;color:#374151;font-family:Arial,sans-serif;padding-right:12px;"><strong>Muni:</strong> ${m.muniLabel}</td>
+          <td style="font-size:11px;color:#374151;font-family:Arial,sans-serif;padding-right:12px;"><strong>Units:</strong> ${deal.projectInfo.numUnits}</td>
+          <td style="font-size:11px;color:#6b7280;font-family:Arial,sans-serif;">${m.date}</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  ${allInBanner}
+
+  <!-- Yield box -->
+  <tr>
+    <td style="padding:20px 24px;text-align:center;background:${pass ? '#f0fdf4' : '#fef2f2'};border-top:3px solid ${yc};border-bottom:3px solid ${yc};">
+      <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.08em;font-family:Arial,sans-serif;">Project Yield</div>
+      <div style="font-size:44px;font-weight:800;color:${yc};line-height:1.1;font-family:Arial,sans-serif;">${this._pct(r.yieldPct)}</div>
+      <div style="font-size:15px;font-weight:700;color:${yc};margin-top:6px;font-family:Arial,sans-serif;">${pass ? '✓ Passes 20% Target' : '✗ Below 20% Target'}</div>
+    </td>
+  </tr>
+
+  <!-- Key metrics (2 rows of 3) -->
+  <tr>
+    <td style="padding:16px 24px;border-bottom:1px solid #e2e8f0;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          ${metricCell('Total Project Cost', this._fmt(r.totalProjectCost), null)}
+          ${spacerCell}
+          ${metricCell('Net Revenue', this._fmt(r.netRevenue), null)}
+          ${spacerCell}
+          ${metricCell('Profit', this._fmt(r.profit), pc)}
+        </tr>
+        <tr><td height="8" colspan="5"></td></tr>
+        <tr>
+          ${metricCell('Profit / Unit', this._fmt(r.profitPerUnit), pc)}
+          ${spacerCell}
+          ${metricCell('ROI on Equity', this._pct(r.roiOnEquity), null)}
+          ${spacerCell}
+          ${metricCell('Break-even / Unit', this._fmt(r.breakEvenPricePerUnit), null)}
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Cost + Revenue tables side by side -->
+  <tr>
+    <td style="padding:16px 24px;border-bottom:1px solid #e2e8f0;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <!-- Cost breakdown -->
+          <td width="56%" valign="top">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#374151;background:#f1f5f9;padding:6px 8px;font-family:Arial,sans-serif;">Cost Breakdown</div>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-top:none;">
+              <thead><tr style="border-bottom:1px solid #e2e8f0;">
+                <th style="text-align:left;padding:4px 8px;font-size:10px;color:#9ca3af;font-weight:600;font-family:Arial,sans-serif;">Category</th>
+                <th style="text-align:right;padding:4px 8px;font-size:10px;color:#9ca3af;font-weight:600;font-family:Arial,sans-serif;">Amount</th>
+                <th style="text-align:right;padding:4px 8px;font-size:10px;color:#9ca3af;font-weight:600;font-family:Arial,sans-serif;">% Total</th>
+              </tr></thead>
+              <tbody>${costTableRows}</tbody>
+            </table>
+          </td>
+          <td width="4%"></td>
+          <!-- Revenue + Financing -->
+          <td width="40%" valign="top">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#374151;background:#f1f5f9;padding:6px 8px;font-family:Arial,sans-serif;">Revenue</div>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-top:none;margin-bottom:12px;">
+              <thead><tr style="border-bottom:1px solid #e2e8f0;">
+                <th style="text-align:left;padding:4px 8px;font-size:10px;color:#9ca3af;font-weight:600;font-family:Arial,sans-serif;">Item</th>
+                <th style="text-align:right;padding:4px 8px;font-size:10px;color:#9ca3af;font-weight:600;font-family:Arial,sans-serif;">Amount</th>
+              </tr></thead>
+              <tbody>${revTableRows}</tbody>
+            </table>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#374151;background:#f1f5f9;padding:6px 8px;font-family:Arial,sans-serif;">Financing</div>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-top:none;">
+              <tbody>${finTableRows}</tbody>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- Footer -->
+  <tr>
+    <td style="padding:12px 24px;background:#f8fafc;border-radius:0 0 8px 8px;text-align:center;">
+      <div style="font-size:10px;color:#9ca3af;font-family:Arial,sans-serif;">For preliminary analysis only. Not investment or financial advice.</div>
+    </td>
+  </tr>
+
+</table>`;
+  },
+
+  // Plain-text fallback (used when ClipboardItem is unavailable)
+  _buildEmailPlain(deal, m) {
     const r   = deal.results;
     const eff = this._effectiveCosts(deal);
     const pass = r.yieldPct >= 20;
@@ -280,45 +507,45 @@ ${allInBanner}
       sep,
       line('Project Yield:', this._pct(r.yieldPct) + `  ${pass ? '✓ PASSES 20% TARGET' : '✗ BELOW 20% TARGET'}`),
       '',
-      line('Total Project Cost:',   this._fmt(r.totalProjectCost)),
-      line('Net Revenue:',          this._fmt(r.netRevenue)),
-      line('Profit:',               this._fmt(r.profit)),
-      line('Profit per Unit:',      this._fmt(r.profitPerUnit)),
-      line('ROI on Equity:',        this._pct(r.roiOnEquity)),
-      line('Break-even / Unit:',    this._fmt(r.breakEvenPricePerUnit)),
+      line('Total Project Cost:',    this._fmt(r.totalProjectCost)),
+      line('Net Revenue:',           this._fmt(r.netRevenue)),
+      line('Profit:',                this._fmt(r.profit)),
+      line('Profit per Unit:',       this._fmt(r.profitPerUnit)),
+      line('ROI on Equity:',         this._pct(r.roiOnEquity)),
+      line('Break-even / Unit:',     this._fmt(r.breakEvenPricePerUnit)),
       '',
       sep,
       'COST BREAKDOWN',
       sep,
-      line('Land Acquisition:',     this._fmt(deal.landAcquisition.total)),
-      line('Hard Costs:',           this._fmt(deal.hardCosts.total)),
-      line('Soft Costs:',           this._fmt(eff.soft)),
-      line('Contingency:',          this._fmt(eff.contingency)),
-      line('Municipal Fees:',       this._fmt(eff.municipal)),
-      line('Cost Before Financing:', this._fmt(r.totalCostBeforeFinancing)),
-      line('Financing Costs:',      this._fmt(eff.financing)),
-      line('TOTAL PROJECT COST:',   this._fmt(r.totalProjectCost)),
+      line('Land Acquisition:',       this._fmt(deal.landAcquisition.total)),
+      line('Hard Costs:',             this._fmt(deal.hardCosts.total)),
+      line('Soft Costs:',             this._fmt(eff.soft)),
+      line('Contingency:',            this._fmt(eff.contingency)),
+      line('Municipal Fees:',         this._fmt(eff.municipal)),
+      line('Cost Before Financing:',  this._fmt(r.totalCostBeforeFinancing)),
+      line('Financing Costs:',        this._fmt(eff.financing)),
+      line('TOTAL PROJECT COST:',     this._fmt(r.totalProjectCost)),
       '',
       sep,
-      'REVENUE BREAKDOWN',
+      'REVENUE',
       sep,
-      line('Gross Sales:',                  this._fmt(deal.revenue.breakdown.grossSales)),
-      line('Less: Realtor Commission:',     this._fmt(deal.revenue.breakdown.realtorCommission.amount)),
-      line('Less: Legal Fees:',             this._fmt(deal.revenue.breakdown.legalPerSale.amount)),
+      line('Gross Sales:',                 this._fmt(deal.revenue.breakdown.grossSales)),
+      line('Less: Realtor Commission:',    this._fmt(deal.revenue.breakdown.realtorCommission.amount)),
+      line('Less: Legal Fees:',            this._fmt(deal.revenue.breakdown.legalPerSale.amount)),
       ...(deal.revenue.breakdown.marketingCosts.amount > 0
         ? [line('Less: Marketing:', this._fmt(deal.revenue.breakdown.marketingCosts.amount))] : []),
-      line('NET REVENUE:',                  this._fmt(r.netRevenue)),
+      line('NET REVENUE:',                 this._fmt(r.netRevenue)),
       '',
       sep,
       'FINANCING',
       sep,
-      line('Equity:',             deal.financing.breakdown.equityPct + '%'),
-      line('Interest Rate:',      deal.financing.breakdown.interestRate + '%'),
+      line('Equity:',              deal.financing.breakdown.equityPct + '%'),
+      line('Interest Rate:',       deal.financing.breakdown.interestRate + '%'),
       line('Construction Period:', deal.financing.breakdown.constructionPeriod + ' months'),
-      line('Loan Amount:',        this._fmt(deal.financing.breakdown.loanAmount)),
-      line('Total Financing:',    this._fmt(eff.financing)),
+      line('Loan Amount:',         this._fmt(deal.financing.breakdown.loanAmount)),
+      line('Total Financing:',     this._fmt(eff.financing)),
       '',
-      ...(deal.allIn ? ['⚠ All-in mode was active — hard costs treated as fully inclusive.', ''] : []),
+      ...(deal.allIn ? ['⚠ All-in mode active — hard costs treated as fully inclusive.', ''] : []),
       sep,
       'For preliminary analysis only. Not investment or financial advice.',
     ];
