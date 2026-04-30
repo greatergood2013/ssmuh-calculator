@@ -272,9 +272,8 @@ ${allInBanner}
             'text/plain': new Blob([plain], { type: 'text/plain' }),
           }),
         ]);
-        // Open email client with subject pre-filled, then instruct user to paste
-        setTimeout(() => { window.location.href = `mailto:?subject=${subject}`; }, 80);
-        UI.toast('Formatted content copied — paste it into the email body.');
+        // Show acknowledgment modal — user must confirm before email client opens
+        this._showEmailCopiedModal(`mailto:?subject=${subject}`);
         return;
       } catch (_) {
         // ClipboardItem write failed (e.g. iframe sandbox) — fall through
@@ -284,6 +283,83 @@ ${allInBanner}
     // Fallback: open mailto: with plain-text body
     const body = encodeURIComponent(this._buildEmailPlain(deal, m));
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  },
+
+  _showEmailCopiedModal(mailtoUrl) {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = [
+      'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;',
+      'background:rgba(0,0,0,0.45);backdrop-filter:blur(2px);',
+    ].join('');
+
+    overlay.innerHTML = `
+      <div role="dialog" aria-modal="true" style="
+          background:#fff;border-radius:12px;padding:28px 24px 24px;
+          max-width:380px;width:calc(100% - 32px);
+          box-shadow:0 24px 64px rgba(0,0,0,0.25);
+          text-align:center;font-family:inherit;">
+
+        <!-- Icon -->
+        <div style="width:52px;height:52px;background:#dbeafe;border-radius:50%;
+                    display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+          <svg width="26" height="26" fill="none" stroke="#2563eb" stroke-width="1.75"
+               stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1
+                     M8 5a2 2 0 002 2h2a2 2 0 002-2
+                     M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3
+                     m2 4H10m0 0l3-3m-3 3l3 3"/>
+          </svg>
+        </div>
+
+        <h3 style="margin:0 0 10px;font-size:17px;font-weight:700;color:#111827;">
+          Formatted content copied!
+        </h3>
+        <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.55;">
+          Your email app will open with the subject line pre-filled,
+          but the <strong style="color:#374151;">body will be empty</strong>.
+          <br><br>
+          Click in the body and press
+          <kbd style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;
+                      padding:1px 6px;font-size:12px;color:#374151;">⌘V</kbd>
+          &nbsp;/&nbsp;
+          <kbd style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;
+                      padding:1px 6px;font-size:12px;color:#374151;">Ctrl+V</kbd>
+          to paste the formatted deal summary.
+        </p>
+
+        <button id="emailModalConfirm" style="
+            width:100%;padding:12px;border:none;border-radius:8px;
+            background:#2563eb;color:#fff;font-size:14px;font-weight:600;
+            cursor:pointer;transition:background 0.15s;">
+          Got it — open my email app
+        </button>
+        <button id="emailModalCancel" style="
+            width:100%;padding:8px;margin-top:8px;border:none;border-radius:8px;
+            background:transparent;color:#9ca3af;font-size:13px;cursor:pointer;">
+          Cancel
+        </button>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    const close = (openMail) => {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+      if (openMail) window.location.href = mailtoUrl;
+    };
+
+    const onKey = (e) => { if (e.key === 'Escape') close(false); };
+    document.addEventListener('keydown', onKey);
+
+    overlay.querySelector('#emailModalConfirm').addEventListener('click', () => close(true));
+    overlay.querySelector('#emailModalCancel').addEventListener('click',  () => close(false));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+
+    // Hover effect on confirm button
+    const btn = overlay.querySelector('#emailModalConfirm');
+    btn.addEventListener('mouseenter', () => { btn.style.background = '#1d4ed8'; });
+    btn.addEventListener('mouseleave', () => { btn.style.background = '#2563eb'; });
+    btn.focus();
   },
 
   // Styled HTML for pasting into an email composer.
