@@ -205,6 +205,17 @@ details[open] summary::before {
   }
 }
 
+/* ── Print styles (for the main app page if ever printed directly) ─ */
+@media print {
+  /* The PDF export opens its own window, so the main app page shouldn't
+     need to be printed directly. If it is, hide chrome and show content. */
+  header, footer, #calculateBtn, #saveDealBtn, #adjustBtn,
+  #newAnalysisBtn, .accordion-chevron, #victoriaDefaultsBtn,
+  #historySection, #emptyState, [id$="OverrideLabel"], #allInLabel {
+    display: none !important;
+  }
+}
+
 /* ── All-in mode: excluded sections ────────────────────────── */
 .all-in-excluded {
   position: relative;

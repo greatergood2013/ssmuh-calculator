@@ -537,6 +537,11 @@
       recalcAndRender();
       UI.toast('Municipal fees reset');
     });
+
+    // Export buttons
+    document.getElementById('exportPdfBtn').addEventListener('click',   () => Export.toPDF(deal));
+    document.getElementById('exportEmailBtn').addEventListener('click', () => Export.toEmail(deal));
+    document.getElementById('exportExcelBtn').addEventListener('click', () => Export.toExcel(deal));
   }
 
   function handleCalculate() {

@@ -484,6 +484,25 @@
                 <button id="newAnalysisBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 px-4 rounded-lg transition-colors">New Analysis</button>
               </div>
             </div>
+
+            <!-- Export -->
+            <div class="mt-4 pt-4 border-t border-gray-100">
+              <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Export</p>
+              <div class="grid grid-cols-3 gap-2">
+                <button id="exportPdfBtn" class="flex flex-col items-center gap-1.5 py-3 px-2 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 text-gray-600 transition-colors" title="Download as PDF">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 13h6M9 17h4"/></svg>
+                  <span class="text-xs font-medium">PDF</span>
+                </button>
+                <button id="exportEmailBtn" class="flex flex-col items-center gap-1.5 py-3 px-2 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 text-gray-600 transition-colors" title="Open in email client">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                  <span class="text-xs font-medium">Email</span>
+                </button>
+                <button id="exportExcelBtn" class="flex flex-col items-center gap-1.5 py-3 px-2 bg-white border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 hover:text-green-700 text-gray-600 transition-colors" title="Download as Excel spreadsheet">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M3 10h18M3 14h18M10 3v18M3 6a1 1 0 011-1h16a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/></svg>
+                  <span class="text-xs font-medium">Excel</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -536,6 +555,7 @@
   <script src="js/calculator.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/export.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
