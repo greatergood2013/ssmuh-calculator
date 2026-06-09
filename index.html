@@ -382,11 +382,40 @@
             </div>
           </div>
           <div class="accordion-body hidden px-4 pb-4 space-y-3" id="revenueBody">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Average Sale Price per Unit <span class="text-red-500">*</span></label>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                <input type="text" id="salePricePerUnit" class="currency-input w-full pl-7 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="750,000">
+            <!-- Revenue triple-entry input method -->
+            <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Enter sale price using: <span class="text-red-500">*</span></div>
+              <div class="flex gap-1 mb-3">
+                <button class="rev-method-btn px-3 py-1.5 text-xs font-medium rounded-md transition-colors" data-method="perSF">$/SF</button>
+                <button class="rev-method-btn active px-3 py-1.5 text-xs font-medium rounded-md transition-colors" data-method="perUnit">$/Unit</button>
+                <button class="rev-method-btn px-3 py-1.5 text-xs font-medium rounded-md transition-colors" data-method="total">Total</button>
+              </div>
+              <div class="grid grid-cols-3 gap-3">
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Price per SF</label>
+                  <div class="relative">
+                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input type="text" id="salePricePerSF" class="currency-input rev-sync-input w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-method="perSF" placeholder="680">
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Price per Unit</label>
+                  <div class="relative">
+                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input type="text" id="salePricePerUnit" class="currency-input rev-sync-input w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-method="perUnit" placeholder="750,000">
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-500 mb-1">Total Gross Sales</label>
+                  <div class="relative">
+                    <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <input type="text" id="totalGrossSales" class="currency-input rev-sync-input w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" data-method="total" placeholder="3,000,000">
+                  </div>
+                </div>
+              </div>
+              <div class="text-xs text-green-600 mt-2 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                Auto-sync enabled
               </div>
             </div>
             <div class="grid grid-cols-2 gap-3">

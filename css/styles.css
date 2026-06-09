@@ -43,6 +43,23 @@
   border-color: #2563eb;
 }
 
+/* ── Revenue Method Buttons (Triple-Entry) ───────────────── */
+.rev-method-btn {
+  background: white;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.rev-method-btn:hover {
+  background: #f3f4f6;
+}
+
+.rev-method-btn.active {
+  background: #16a34a;
+  color: white;
+  border-color: #16a34a;
+}
+
 /* ── Breakdown Row Editable Inputs ─────────────────────────── */
 .breakdown-value-input {
   transition: border-color 0.15s, background 0.15s;
@@ -194,7 +211,8 @@ details[open] summary::before {
   }
 
   .cost-method-btn,
-  .soft-method-btn {
+  .soft-method-btn,
+  .rev-method-btn {
     font-size: 0.65rem;
     padding: 0.25rem 0.5rem;
   }
