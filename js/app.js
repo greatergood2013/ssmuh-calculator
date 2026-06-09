@@ -39,6 +39,77 @@
     bindAllIn();
 
     UI.renderHistory();
+    maybeShowDisclaimerModal();
+  }
+
+  // ── First-visit disclaimer acknowledgment ──────────────────
+  const DISCLAIMER_ACK_KEY = 'ssmuh_disclaimer_ack';
+
+  function maybeShowDisclaimerModal() {
+    let acked = false;
+    try { acked = localStorage.getItem(DISCLAIMER_ACK_KEY) === '1'; } catch (_) {}
+    if (acked) return;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = [
+      'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;',
+      'background:rgba(0,0,0,0.55);backdrop-filter:blur(2px);padding:16px;',
+    ].join('');
+
+    overlay.innerHTML = `
+      <div role="dialog" aria-modal="true" aria-labelledby="disclaimerTitle" style="
+          background:#fff;border-radius:12px;padding:28px 24px 24px;
+          max-width:480px;width:100%;max-height:90vh;overflow-y:auto;
+          box-shadow:0 24px 64px rgba(0,0,0,0.3);font-family:inherit;">
+
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <div style="width:44px;height:44px;background:#fef3c7;border-radius:50%;
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="24" height="24" fill="none" stroke="#d97706" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <h3 id="disclaimerTitle" style="margin:0;font-size:18px;font-weight:800;color:#111827;">
+            Beta tool — please read
+          </h3>
+        </div>
+
+        <div style="font-size:14px;color:#374151;line-height:1.6;">
+          <p style="margin:0 0 12px;">
+            This SSMUH Yield Calculator is a <strong>beta product that is still being tested and
+            calibrated.</strong> It is intended only as a <strong>preliminary screening tool.</strong>
+          </p>
+          <ul style="margin:0 0 12px;padding-left:18px;">
+            <li style="margin-bottom:6px;">It is <strong>not financial, investment, accounting, or legal advice.</strong></li>
+            <li style="margin-bottom:6px;">All inputs, assumptions, and outputs are <strong>estimates and may contain errors.</strong></li>
+            <li style="margin-bottom:6px;">Default cost and fee figures may be outdated or inaccurate for your project.</li>
+            <li>You must <strong>independently verify every figure</strong> with your own pro forma, qualified professional advisors, and current municipal fee schedules before making any decision.</li>
+          </ul>
+          <p style="margin:0;color:#6b7280;">
+            By continuing you acknowledge that you use this tool at your own risk and that the authors
+            accept no liability for any decision made based on its outputs.
+          </p>
+        </div>
+
+        <button id="disclaimerAck" style="
+            width:100%;padding:12px;margin-top:20px;border:none;border-radius:8px;
+            background:#d97706;color:#fff;font-size:14px;font-weight:700;
+            cursor:pointer;transition:background 0.15s;">
+          I understand — continue
+        </button>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    const ackBtn = overlay.querySelector('#disclaimerAck');
+    ackBtn.addEventListener('mouseenter', () => { ackBtn.style.background = '#b45309'; });
+    ackBtn.addEventListener('mouseleave', () => { ackBtn.style.background = '#d97706'; });
+    ackBtn.addEventListener('click', () => {
+      try { localStorage.setItem(DISCLAIMER_ACK_KEY, '1'); } catch (_) {}
+      overlay.remove();
+    });
+    ackBtn.focus();
   }
 
   // ── Currency input auto-formatting ─────────────────────────
