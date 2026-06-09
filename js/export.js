@@ -240,7 +240,9 @@ ${allInBanner}
 </div>
 
 <div class="page-footer">
-  SSMUH Yield Calculator &nbsp;|&nbsp; For preliminary analysis only. This is not investment or financial advice. &nbsp;|&nbsp; ${m.date}
+  SSMUH Yield Calculator (Beta) &nbsp;|&nbsp; ${m.date}<br>
+  Beta tool, still being tested and calibrated. Preliminary screening only — not financial, investment, accounting, or legal advice.
+  All figures are estimates and may contain errors; verify independently with your own tools and professional advisors before relying on them.
 </div>
 
 </body>
@@ -554,7 +556,7 @@ ${allInBanner}
   <!-- Footer -->
   <tr>
     <td style="padding:12px 24px;background:#f8fafc;border-radius:0 0 8px 8px;text-align:center;">
-      <div style="font-size:10px;color:#9ca3af;font-family:Arial,sans-serif;">For preliminary analysis only. Not investment or financial advice.</div>
+      <div style="font-size:10px;color:#9ca3af;font-family:Arial,sans-serif;line-height:1.5;">Beta tool, still being tested and calibrated. Preliminary screening only — not financial, investment, accounting, or legal advice. All figures are estimates and may contain errors; verify independently with your own tools and professional advisors before relying on them.</div>
     </td>
   </tr>
 
@@ -623,7 +625,10 @@ ${allInBanner}
       '',
       ...(deal.allIn ? ['⚠ All-in mode active — hard costs treated as fully inclusive.', ''] : []),
       sep,
-      'For preliminary analysis only. Not investment or financial advice.',
+      'BETA tool — still being tested and calibrated. Preliminary screening only.',
+      'Not financial, investment, accounting, or legal advice. All figures are',
+      'estimates and may contain errors; verify independently with your own tools',
+      'and professional advisors before relying on them.',
     ];
 
     return rows.join('\n');
@@ -718,7 +723,9 @@ ${allInBanner}
       ['Lender Legal Fees',               deal.financing.breakdown.lenderLegal.amount],
       ['Total Financing Cost',            eff.financing],
       [],
-      ['For preliminary analysis only. Not investment or financial advice.'],
+      ['BETA tool — still being tested and calibrated. Preliminary screening only.'],
+      ['Not financial, investment, accounting, or legal advice. All figures are estimates and may'],
+      ['contain errors; verify independently with your own tools and professional advisors before relying on them.'],
     ];
 
     const wsSummary = XLSX.utils.aoa_to_sheet(summary);

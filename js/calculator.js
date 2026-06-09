@@ -83,8 +83,10 @@ const Calculator = {
 
       revenue: {
         total: 0,
+        inputMethod: 'perUnit',  // 'perSF' | 'perUnit' | 'total'
         breakdown: {
           pricePerUnit:       0,
+          pricePerSF:         0,
           grossSales:         0,
           realtorCommission:  { pct: Defaults.revenue.realtorCommissionPct, amount: 0, label: 'Realtor Commission' },
           legalPerSale:       { fixed: Defaults.revenue.legalPerSale, amount: 0, label: 'Legal Fees' },
@@ -483,11 +485,35 @@ const Calculator = {
   },
 
   // ── Revenue ────────────────────────────────────────────────
+  //
+  // Gross sales can be driven three ways — by $/unit, by $/SF, or by an
+  // explicit total. Whichever the user picks (inputMethod) is the driver;
+  // grossSales becomes the source of truth and the other two representations
+  // are always back-calculated from it so the triple-entry fields stay in sync.
+  //
   _calcRevenue(deal) {
     const r = deal.revenue.breakdown;
     const numUnits = deal.projectInfo.numUnits;
+    const totalSF  = deal.projectInfo.totalSF;
+    const method   = deal.revenue.inputMethod || 'perUnit';
 
-    r.grossSales = numUnits * r.pricePerUnit;
+    switch (method) {
+      case 'perSF':
+        r.grossSales = totalSF * r.pricePerSF;
+        break;
+      case 'total':
+        // grossSales is the driver — leave it as the user entered it
+        break;
+      case 'perUnit':
+      default:
+        r.grossSales = numUnits * r.pricePerUnit;
+        break;
+    }
+
+    // Keep all three representations coherent from grossSales
+    r.pricePerUnit = numUnits > 0 ? r.grossSales / numUnits : 0;
+    r.pricePerSF   = totalSF  > 0 ? r.grossSales / totalSF  : 0;
+
     r.realtorCommission.amount = r.grossSales * (r.realtorCommission.pct / 100);
     r.legalPerSale.amount = numUnits * r.legalPerSale.fixed;
 

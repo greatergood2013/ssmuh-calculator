@@ -30,6 +30,7 @@
     bindAccordions();
     bindTripleEntry();
     bindSoftTripleEntry();
+    bindRevenueTripleEntry();
     bindFormInputs();
     bindButtons();
     bindMunicipalitySelector();
@@ -38,6 +39,77 @@
     bindAllIn();
 
     UI.renderHistory();
+    maybeShowDisclaimerModal();
+  }
+
+  // ── First-visit disclaimer acknowledgment ──────────────────
+  const DISCLAIMER_ACK_KEY = 'ssmuh_disclaimer_ack';
+
+  function maybeShowDisclaimerModal() {
+    let acked = false;
+    try { acked = localStorage.getItem(DISCLAIMER_ACK_KEY) === '1'; } catch (_) {}
+    if (acked) return;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = [
+      'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;',
+      'background:rgba(0,0,0,0.55);backdrop-filter:blur(2px);padding:16px;',
+    ].join('');
+
+    overlay.innerHTML = `
+      <div role="dialog" aria-modal="true" aria-labelledby="disclaimerTitle" style="
+          background:#fff;border-radius:12px;padding:28px 24px 24px;
+          max-width:480px;width:100%;max-height:90vh;overflow-y:auto;
+          box-shadow:0 24px 64px rgba(0,0,0,0.3);font-family:inherit;">
+
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <div style="width:44px;height:44px;background:#fef3c7;border-radius:50%;
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="24" height="24" fill="none" stroke="#d97706" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <h3 id="disclaimerTitle" style="margin:0;font-size:18px;font-weight:800;color:#111827;">
+            Beta tool — please read
+          </h3>
+        </div>
+
+        <div style="font-size:14px;color:#374151;line-height:1.6;">
+          <p style="margin:0 0 12px;">
+            This SSMUH Yield Calculator is a <strong>beta product that is still being tested and
+            calibrated.</strong> It is intended only as a <strong>preliminary screening tool.</strong>
+          </p>
+          <ul style="margin:0 0 12px;padding-left:18px;">
+            <li style="margin-bottom:6px;">It is <strong>not financial, investment, accounting, or legal advice.</strong></li>
+            <li style="margin-bottom:6px;">All inputs, assumptions, and outputs are <strong>estimates and may contain errors.</strong></li>
+            <li style="margin-bottom:6px;">Default cost and fee figures may be outdated or inaccurate for your project.</li>
+            <li>You must <strong>independently verify every figure</strong> with your own pro forma, qualified professional advisors, and current municipal fee schedules before making any decision.</li>
+          </ul>
+          <p style="margin:0;color:#6b7280;">
+            By continuing you acknowledge that you use this tool at your own risk and that the authors
+            accept no liability for any decision made based on its outputs.
+          </p>
+        </div>
+
+        <button id="disclaimerAck" style="
+            width:100%;padding:12px;margin-top:20px;border:none;border-radius:8px;
+            background:#d97706;color:#fff;font-size:14px;font-weight:700;
+            cursor:pointer;transition:background 0.15s;">
+          I understand — continue
+        </button>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    const ackBtn = overlay.querySelector('#disclaimerAck');
+    ackBtn.addEventListener('mouseenter', () => { ackBtn.style.background = '#b45309'; });
+    ackBtn.addEventListener('mouseleave', () => { ackBtn.style.background = '#d97706'; });
+    ackBtn.addEventListener('click', () => {
+      try { localStorage.setItem(DISCLAIMER_ACK_KEY, '1'); } catch (_) {}
+      overlay.remove();
+    });
+    ackBtn.focus();
   }
 
   // ── Currency input auto-formatting ─────────────────────────
@@ -162,6 +234,7 @@
       Calculator.syncConstructionCosts(deal);
       updateTripleEntryFields();
       recalcAndRender({ updateSoftFields: true });
+      updateRevenueTripleEntryFields();
     }
     document.getElementById('numUnits').addEventListener('change', handleNumUnits);
     document.getElementById('numUnits').addEventListener('input', handleNumUnits);
@@ -172,6 +245,7 @@
       Calculator.syncConstructionCosts(deal);
       updateTripleEntryFields();
       recalcAndRender({ updateSoftFields: true });
+      updateRevenueTripleEntryFields();
     }
     document.getElementById('sfPerUnit').addEventListener('change', handleSfPerUnit);
     document.getElementById('sfPerUnit').addEventListener('input', handleSfPerUnit);
@@ -271,6 +345,79 @@
     UI.setCurrencyField('softCostTotal', deal.softCosts.total);
   }
 
+  // ── Triple-Entry Revenue Sync ────────────────────────────────
+  // Lets the user drive gross sales by $/SF, $/unit, or an explicit total.
+  // grossSales is the source of truth; the other two fields back-fill on blur.
+  function bindRevenueTripleEntry() {
+    // Method selector buttons
+    document.querySelectorAll('.rev-method-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setRevActiveMethod(btn.dataset.method);
+        deal.revenue.inputMethod = btn.dataset.method;
+      });
+    });
+
+    // Price per SF
+    function handleRevPerSF(e) {
+      deal.revenue.breakdown.pricePerSF = UI.parseCurrency(document.getElementById('salePricePerSF').value);
+      deal.revenue.inputMethod = 'perSF';
+      setRevActiveMethod('perSF');
+      recalcAndRender();
+      if (e.type === 'change') {
+        UI.setCurrencyField('salePricePerUnit', deal.revenue.breakdown.pricePerUnit);
+        UI.setCurrencyField('totalGrossSales', deal.revenue.breakdown.grossSales);
+        UI.flashField('salePricePerUnit');
+        UI.flashField('totalGrossSales');
+      }
+    }
+    document.getElementById('salePricePerSF').addEventListener('change', handleRevPerSF);
+    document.getElementById('salePricePerSF').addEventListener('input', handleRevPerSF);
+
+    // Price per Unit
+    function handleRevPerUnit(e) {
+      deal.revenue.breakdown.pricePerUnit = UI.parseCurrency(document.getElementById('salePricePerUnit').value);
+      deal.revenue.inputMethod = 'perUnit';
+      setRevActiveMethod('perUnit');
+      recalcAndRender();
+      if (e.type === 'change') {
+        UI.setCurrencyField('salePricePerSF', deal.revenue.breakdown.pricePerSF);
+        UI.setCurrencyField('totalGrossSales', deal.revenue.breakdown.grossSales);
+        UI.flashField('salePricePerSF');
+        UI.flashField('totalGrossSales');
+      }
+    }
+    document.getElementById('salePricePerUnit').addEventListener('change', handleRevPerUnit);
+    document.getElementById('salePricePerUnit').addEventListener('input', handleRevPerUnit);
+
+    // Total Gross Sales
+    function handleRevTotal(e) {
+      deal.revenue.breakdown.grossSales = UI.parseCurrency(document.getElementById('totalGrossSales').value);
+      deal.revenue.inputMethod = 'total';
+      setRevActiveMethod('total');
+      recalcAndRender();
+      if (e.type === 'change') {
+        UI.setCurrencyField('salePricePerSF', deal.revenue.breakdown.pricePerSF);
+        UI.setCurrencyField('salePricePerUnit', deal.revenue.breakdown.pricePerUnit);
+        UI.flashField('salePricePerSF');
+        UI.flashField('salePricePerUnit');
+      }
+    }
+    document.getElementById('totalGrossSales').addEventListener('change', handleRevTotal);
+    document.getElementById('totalGrossSales').addEventListener('input', handleRevTotal);
+  }
+
+  function setRevActiveMethod(method) {
+    document.querySelectorAll('.rev-method-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.rev-method-btn[data-method="${method}"]`);
+    if (btn) btn.classList.add('active');
+  }
+
+  function updateRevenueTripleEntryFields() {
+    UI.setCurrencyField('salePricePerSF', deal.revenue.breakdown.pricePerSF);
+    UI.setCurrencyField('salePricePerUnit', deal.revenue.breakdown.pricePerUnit);
+    UI.setCurrencyField('totalGrossSales', deal.revenue.breakdown.grossSales);
+  }
+
   // ── Bind main form inputs ──────────────────────────────────
   // We bind both 'change' (fires on tab/enter/blur) and 'input' (fires on
   // each keystroke) so that section totals update in real-time as the user
@@ -300,8 +447,8 @@
       bindLive(id, () => { syncFinancingFromForm(); recalcAndRender(); });
     });
 
-    // Revenue fields
-    ['salePricePerUnit', 'realtorCommission', 'legalPerSale', 'marketingCosts'].forEach(id => {
+    // Revenue fields (sale price is handled by bindRevenueTripleEntry)
+    ['realtorCommission', 'legalPerSale', 'marketingCosts'].forEach(id => {
       bindLive(id, () => { syncRevenueFromForm(); recalcAndRender(); });
     });
   }
@@ -327,6 +474,7 @@
       Calculator.syncConstructionCosts(deal);
       updateTripleEntryFields();
       recalcAndRender();
+      updateRevenueTripleEntryFields();
     });
   }
 
@@ -410,7 +558,15 @@
   }
 
   function syncRevenueFromForm() {
-    deal.revenue.breakdown.pricePerUnit = UI.parseCurrency(document.getElementById('salePricePerUnit').value);
+    // Read the driver field that matches the active input method
+    const method = deal.revenue.inputMethod || 'perUnit';
+    if (method === 'perSF') {
+      deal.revenue.breakdown.pricePerSF = UI.parseCurrency(document.getElementById('salePricePerSF').value);
+    } else if (method === 'total') {
+      deal.revenue.breakdown.grossSales = UI.parseCurrency(document.getElementById('totalGrossSales').value);
+    } else {
+      deal.revenue.breakdown.pricePerUnit = UI.parseCurrency(document.getElementById('salePricePerUnit').value);
+    }
     deal.revenue.breakdown.realtorCommission.pct = parseFloat(document.getElementById('realtorCommission').value) || 3.5;
     deal.revenue.breakdown.legalPerSale.fixed = UI.parseCurrency(document.getElementById('legalPerSale').value);
     deal.revenue.breakdown.marketingCosts.amount = UI.parseCurrency(document.getElementById('marketingCosts').value);
@@ -452,8 +608,11 @@
     document.getElementById('commitmentFeePct').value = deal.financing.breakdown.commitmentFee.pct;
     UI.setCurrencyField('lenderLegal', deal.financing.breakdown.lenderLegal.amount);
 
-    // Revenue
+    // Revenue triple-entry
+    UI.setCurrencyField('salePricePerSF', deal.revenue.breakdown.pricePerSF);
     UI.setCurrencyField('salePricePerUnit', deal.revenue.breakdown.pricePerUnit);
+    UI.setCurrencyField('totalGrossSales', deal.revenue.breakdown.grossSales);
+    setRevActiveMethod(deal.revenue.inputMethod || 'perUnit');
     document.getElementById('realtorCommission').value = deal.revenue.breakdown.realtorCommission.pct;
     UI.setCurrencyField('legalPerSale', deal.revenue.breakdown.legalPerSale.fixed);
     UI.setCurrencyField('marketingCosts', deal.revenue.breakdown.marketingCosts.amount);
@@ -583,7 +742,9 @@
     deal = Calculator.createDealModel();
     loadFormFromModel();
     document.getElementById('landCost').value = '';
+    document.getElementById('salePricePerSF').value = '';
     document.getElementById('salePricePerUnit').value = '';
+    document.getElementById('totalGrossSales').value = '';
     UI.hideResults();
     UI.clearFieldErrors();
     recalcAndRender();
@@ -607,9 +768,9 @@
     document.getElementById('municipality').value = 'victoria';
     loadFormFromModel();
     if (landCost > 0) UI.setCurrencyField('landCost', landCost);
-    if (salePrice > 0) UI.setCurrencyField('salePricePerUnit', salePrice);
     recalcAndRender();
     updateSoftTripleEntryFields();
+    updateRevenueTripleEntryFields();
     UI.toast('Victoria-area defaults applied');
   }
 
@@ -643,9 +804,13 @@
         // All-in backward compat
         if (deal.allIn === undefined) deal.allIn = false;
         if (deal.allInOverrides === undefined) deal.allInOverrides = { soft: false, contingency: false, municipal: false, financing: false };
+        // Revenue triple-entry backward compat
+        if (deal.revenue.inputMethod === undefined) deal.revenue.inputMethod = 'perUnit';
+        if (deal.revenue.breakdown.pricePerSF === undefined) deal.revenue.breakdown.pricePerSF = 0;
         loadFormFromModel();
         recalcAndRender();
         updateSoftTripleEntryFields();
+        updateRevenueTripleEntryFields();
         handleCalculate();
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
